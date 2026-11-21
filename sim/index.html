@@ -259,7 +259,7 @@ body.web #onlineCard{display:none!important}
     <div class="field"><label>操控方式</label><div class="seg" data-k="mode"><button data-v="2">美國手（Mode 2）</button><button data-v="1">日本手（Mode 1）</button></div><p class="muted small">美國手：左搖桿是油門＋方向；日本手：右搖桿是油門＋橫滾。</p></div>
     <div class="field"><label>飛行模式</label><div class="seg" data-k="fly"><button data-v="alt">定高（新手推薦）</button><button data-v="angle">自穩 ANGLE（手動油門）</button></div><p class="muted small">定高：放開油門會停在同一高度。自穩 ANGLE：比賽常用，要自己控油門維持高度（需鍵盤或遙控器；手機固定用定高）。</p></div>
     <div class="field"><label>搖桿靈敏度（Rates）</label><div class="seg" data-k="rates"><button data-v="0">低</button><button data-v="1">中</button><button data-v="2">高</button></div></div>
-    <div class="field"><label>預設視角</label><div class="seg" data-k="view"><button data-v="chase">追隨</button><button data-v="pilot">選手（目視）</button><button data-v="fpv">FPV</button><button data-v="tv">轉播</button></div></div>
+    <div class="field"><label>預設視角</label><div class="seg" data-k="view"><button data-v="pilot">選手區（固定）</button><button data-v="tv">場邊（固定）</button><button data-v="chase">追隨</button><button data-v="fpv">FPV</button></div><p class="muted small">選手區：站在網子外的選手區看，跟真的比賽一樣，畫面不會跟著無人機動。</p></div>
     <div class="field"><label>比賽自動解鎖</label><div class="seg" data-k="autoArm"><button data-v="true">開</button><button data-v="false">關（自己按解鎖）</button></div></div>
     <div class="field two"><div><label>音效</label><div class="seg" data-k="sound"><button data-v="true">開</button><button data-v="false">關</button></div></div><div><label>名牌</label><div class="seg" data-k="labels"><button data-v="true">開</button><button data-v="false">關</button></div></div></div>
     <div class="field"><label>畫質</label><div class="seg" data-k="quality"><button data-v="high">高（有影子）</button><button data-v="low">省電</button></div></div>
@@ -288,7 +288,7 @@ body.web #onlineCard{display:none!important}
     <p class="small">空白鍵：解鎖／上鎖　C：切換視角　R：重置　Esc：暫停</p>
     <h3>手機</h3><p class="small">畫面左半邊、右半邊各拖曳一下，就是左右兩支搖桿；放開會回到中間。建議橫向拿手機。</p>
     <h3>手把／USB 遙控器</h3><p class="small">插上後到「設定 → 校準遙控器」設定通道。遙控器要切到 USB 搖桿模式（例如 EdgeTX 選 Joystick (HID)）。</p>
-    <h3>視角</h3><p class="small">追隨：在無人機後面跟著飛，最好上手。選手：站在場外選手區看，跟真實比賽一樣。FPV：從無人機上看出去。轉播：從場邊看全場。</p>
+    <h3>視角</h3><p class="small">選手區（預設）：站在自己隊的選手區看，畫面固定，跟真實比賽一樣用眼睛看著無人機飛。場邊：從長邊看整個場地，畫面固定。追隨：鏡頭跟在無人機後面，適合剛開始熟悉方向。FPV：從無人機上看出去。</p>
     <div class="row2"><button class="btn ghost" data-go="menu">← 返回</button></div>
   </div>
 </section>
@@ -342,9 +342,9 @@ const onOwnHalf = (t, x) => TEAM[t].dir > 0 ? x < 0 : x > 0;
 const yawFacing = (dx, dz) => Math.atan2(-dx, -dz);
 
 /* ---------- 設定（存在瀏覽器，失敗就用預設） ---------- */
-const DEF_SET = { mode: 2, fly: 'alt', rates: 1, view: 'chase', quality: 'high', sound: true, labels: true, autoArm: true, name: '', pads: {} };
+const DEF_SET = { v: 2, mode: 2, fly: 'alt', rates: 1, view: 'pilot', quality: 'high', sound: true, labels: true, autoArm: true, name: '', pads: {} };
 let SET = Object.assign({}, DEF_SET);
-function loadSet() { try { const s = JSON.parse(localStorage.getItem('fg_ds_set') || '{}'); SET = Object.assign({}, DEF_SET, s); } catch (e) { } }
+function loadSet() { try { const s = JSON.parse(localStorage.getItem('fg_ds_set') || '{}'); SET = Object.assign({}, DEF_SET, s); if (SET.v !== 2) { SET.v = 2; SET.view = 'pilot'; } } catch (e) { } }
 function saveSet() { try { localStorage.setItem('fg_ds_set', JSON.stringify(SET)); } catch (e) { } }
 function loadBest(k) { try { return +localStorage.getItem('fg_ds_best_' + k) || 0; } catch (e) { return 0; } }
 function saveBest(k, v) { try { localStorage.setItem('fg_ds_best_' + k, String(v)); } catch (e) { } }
@@ -561,7 +561,8 @@ class Drone {
   place(x, y, z, yaw) { this.p.set(x, y, z); this.v.set(0, 0, 0); this.yaw = yaw; this.pitch = this.roll = 0; this.thrust = 0; this.prevX = x; this.kp = this.kr = 0; }
   setLabel(text, bg) {
     if (this.label) { this.mesh.remove(this.label); this.label.material.map.dispose(); this.label = null; }
-    if (!text) return; const s = textSprite(text, { size: 40, color: '#fff', bg: bg || 'rgba(11,26,51,.78)', scale: 0.07, depthTest: false }); s.position.y = 0.2; this.mesh.add(s); this.label = s;
+    if (!text) return; const s = textSprite(text, { size: 40, color: '#fff', bg: bg || 'rgba(11,26,51,.78)', scale: 0.07, depthTest: false });
+    s.material.sizeAttenuation = false; const k = 0.042 / s.scale.y; s.scale.multiplyScalar(k); s.center.set(0.5, -0.35); s.position.y = 0.12; this.mesh.add(s); this.label = s;
   }
 }
 const BATT_PER_S = 100 / 260;
@@ -1045,7 +1046,7 @@ function beginSet() {
 /* ---------- 每一步 ---------- */
 function handlePlayer(pl, dt) {
   const d = pl.drone, inp = pl.input.read(dt); pl.last = inp;
-  if (inp.view) { const order = ['chase', 'pilot', 'fpv', 'tv']; pl.view = order[(order.indexOf(pl.view) + 1) % order.length]; UI.toast('視角：' + VIEW_NAME[pl.view], 'small', 1.2); }
+  if (inp.view) { const order = VIEW_ORDER; pl.view = order[(order.indexOf(pl.view) + 1) % order.length]; UI.toast('視角：' + VIEW_NAME[pl.view], 'small', 1.2); }
   if (inp.reset && (W.mode === 'free' || W.mode === 'rings' || W.mode === 'shoot')) { resetPractice(pl); return; }
   pl.armCD = Math.max(0, (pl.armCD || 0) - dt);
   if (inp.armSwitch != null) { if (inp.armSwitch && !d.armed && pl.armCD <= 0) tryArm(pl, inp, true); else if (!inp.armSwitch && d.armed) { d.armed = false; UI.toast('已上鎖（DISARM）', 'small', 1); } }
@@ -1164,7 +1165,9 @@ function endMatch(w) {
 }
 
 /* ---------- 鏡頭 ---------- */
-const VIEW_NAME = { chase: '追隨視角', pilot: '選手視角（場外目視）', fpv: '第一人稱 FPV', tv: '轉播視角' };
+const VIEW_NAME = { pilot: '選手區視角（固定）', tv: '場邊視角（固定）', chase: '追隨視角', fpv: '第一人稱 FPV' };
+const VIEW_ORDER = ['pilot', 'tv', 'chase', 'fpv'];
+const vfovFor = (hfovDeg, aspect, max) => Math.min(max || 100, 2 * Math.atan(Math.tan(hfovDeg * Math.PI / 360) / aspect) * 180 / Math.PI);
 const _w = new V3(), _l = new V3();
 function updateCam(pl, dt) {
   const d = pl.drone, cam = pl.cam; let fov = 70;
@@ -1173,16 +1176,20 @@ function updateCam(pl, dt) {
     pl.camPos.lerp(_w, 1 - Math.exp(-dt * 5)); cam.position.copy(pl.camPos);
     _l.set(d.p.x + fx * 0.45, d.p.y + 0.02, d.p.z + fz * 0.45); pl.look.lerp(_l, 1 - Math.exp(-dt * 9)); cam.up.set(0, 1, 0); cam.lookAt(pl.look); fov = 68;
   } else if (pl.view === 'pilot') {
-    cam.position.set(-TEAM[d.team].dir * 3.85, 1.55, (d.slot - 1) * 0.55); pl.look.lerp(d.p, 1 - Math.exp(-dt * 10)); cam.up.set(0, 1, 0); cam.lookAt(pl.look); fov = 50;
-    pl.camPos.copy(cam.position);
+    // 站在自己隊的選手區（底線後方、網子外），位置和方向都固定
+    // 選手並排站，每個位置在球門旁邊一點，視線不會被自家球門擋住
+    const dir = TEAM[d.team].dir, zo = [-0.85, 0.85, -0.3][d.slot] * dir;
+    cam.position.set(-dir * 4.15, 1.6, zo); cam.up.set(0, 1, 0); cam.lookAt(dir * 0.6, 1.25, zo * 0.25);
+    fov = vfovFor(96, cam.aspect, 95); pl.camPos.copy(cam.position); pl.look.set(dir * 0.6, 1.25, zo * 0.25);
   } else if (pl.view === 'fpv') {
     cam.position.copy(d.p).addScaledVector(new V3(0, 1, 0).applyQuaternion(d.mesh.quaternion), 0.03);
     cam.quaternion.copy(d.mesh.quaternion); cam.rotateX(0.18); fov = 98; pl.camPos.copy(cam.position);
   } else {
-    _w.set(clamp(d.p.x * 0.4, -1.6, 1.6), 2.7, 4.4); pl.camPos.lerp(_w, 1 - Math.exp(-dt * 2)); cam.position.copy(pl.camPos);
-    _l.set(d.p.x * 0.6, 1.2, 0); pl.look.lerp(_l, 1 - Math.exp(-dt * 3)); cam.up.set(0, 1, 0); cam.lookAt(pl.look); fov = 56;
+    // 場邊（轉播）固定視角：從長邊中間看整個場地
+    cam.position.set(0, 2.5, 5.6); cam.up.set(0, 1, 0); cam.lookAt(0, 1.25, 0);
+    fov = vfovFor(72, cam.aspect, 95); pl.camPos.copy(cam.position); pl.look.set(0, 1.25, 0);
   }
-  if (Math.abs(cam.fov - fov) > 0.1) { cam.fov = lerp(cam.fov, fov, 1 - Math.exp(-dt * 10)); cam.updateProjectionMatrix(); }
+  if (Math.abs(cam.fov - fov) > 0.1) { cam.fov = (pl.view === 'pilot' || pl.view === 'tv') ? fov : lerp(cam.fov, fov, 1 - Math.exp(-dt * 10)); cam.updateProjectionMatrix(); }
   cam.near = pl.view === 'fpv' ? 0.01 : 0.03;
 }
 
@@ -1488,7 +1495,7 @@ const NET = {
   clientFrame(dt) {
     const pl = W.players[0]; if (!pl) return;
     const inp = pl.input.read(dt);
-    if (inp.view) { const order = ['chase', 'pilot', 'fpv', 'tv']; pl.view = order[(order.indexOf(pl.view) + 1) % order.length]; UI.toast('視角：' + VIEW_NAME[pl.view], 'small', 1.2); }
+    if (inp.view) { const order = VIEW_ORDER; pl.view = order[(order.indexOf(pl.view) + 1) % order.length]; UI.toast('視角：' + VIEW_NAME[pl.view], 'small', 1.2); }
     if (this.rm && !pl.spectate) { const rr = v => Math.round(v * 1000) / 1000; this.rm.presence({ in: [rr(inp.th), rr(inp.yaw), rr(inp.pitch), rr(inp.roll), inp.thAbs != null && SET.fly === 'angle' ? rr(inp.thAbs) : -1], nm: this.name.slice(0, 12), want: this.want }).catch(() => { }); }
     // 內插
     const S = this.snaps; if (S.length < 1) return;
@@ -1568,7 +1575,7 @@ const UI = {
       case 'netLeave': NET.leave(); this.go('online'); $('#netLobby').classList.add('hidden'); $('#netEntry').classList.remove('hidden'); break;
       case 'calSave': CAL.save(); break;
       case 'calReset': CAL.reset(); break;
-      case 'view': if (W.players[0]) { const pl = W.players[0], o = ['chase', 'pilot', 'fpv', 'tv']; pl.view = o[(o.indexOf(pl.view) + 1) % 4]; this.toast('視角：' + VIEW_NAME[pl.view], 'small', 1.2); } break;
+      case 'view': if (W.players[0]) { const pl = W.players[0], o = VIEW_ORDER; pl.view = o[(o.indexOf(pl.view) + 1) % 4]; this.toast('視角：' + VIEW_NAME[pl.view], 'small', 1.2); } break;
       case 'pause': this.togglePause(); break;
       case 'tipsToggle': $('#tips').classList.toggle('mini'); break;
     }
