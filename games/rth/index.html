@@ -65,12 +65,12 @@ const LIMIT=120; // 400 呎約 120 公尺
 // 每關：障礙物 [相對位置0~1, 寬度比例, 高度m, 類型, 顯示高度?]
 const LEVELS=[
  {obs:[[.30,.10,25,'b',1],[.52,.12,42,'b',1],[.72,.08,30,'b',1]],tip:'先看四周：最高的障礙物有多高？'},
- {obs:[[.25,.09,35,'b',1],[.47,.05,58,'t',1],[.66,.13,48,'b',1]],tip:'電塔也算障礙物，細細的更容易漏看。'},
+ {obs:[[.25,.09,35,'b',1],[.47,.05,58,'t',1],[.66,.13,48,'b',1]],crowd:[.31,.58],tip:'👥 路線經過園遊會人群上空，還有一座電塔'},
  {obs:[[.22,.11,50,'b',1],[.43,.10,76,'b',0],[.66,.09,62,'b',1]],night:1,tip:'🌙 夜間任務：天黑了，那棟沒標的有多高？'},
  {obs:[[.22,.07,40,'t',1],[.42,.14,68,'b',1],[.64,.09,56,'b',1],[.82,.06,45,'t',1]],rope:12,drop:1,tip:'📦 吊掛 12 m 繩子，飛回起飛點投放物資'},
  {obs:[[.24,.12,96,'b',0],[.46,.06,112,'t',0],[.68,.12,84,'b',0]],tip:'最後一關：障礙物很高，120 公尺的上限還夠嗎？'},
 ];
-let ap0={alt:0,night:0,drop:0};let AP={...ap0};
+let ap0={alt:0,night:0,drop:0,crowd:0};let AP={...ap0};
 let lv=0,total=0,state='idle',t0=0,anim=null,res=null,W=0,H=0,DPR=1;
 function resize(){DPR=Math.min(2,window.devicePixelRatio||1);W=cv.clientWidth;H=cv.clientHeight;cv.width=W*DPR;cv.height=H*DPR;c.setTransform(DPR,0,0,DPR,0,0);draw(0)}
 window.addEventListener('resize',resize);
@@ -101,7 +101,10 @@ function scene(){const L=LEVELS[lv];
  const yl=yOf(LIMIT);if(AP.alt)c.setLineDash([10,7]);c.strokeStyle=AP.alt?'rgba(242,207,126,.9)':'rgba(255,90,78,.9)';c.lineWidth=2.5;c.beginPath();c.moveTo(34,yl);c.lineTo(W,yl);c.stroke();c.setLineDash([]);txt(AP.alt?'400 呎 ≈ 120 m（已核准，這次可以超過）':'400 呎 ≈ 120 m（超過要先申請核准）',W-8,yl-6,12,AP.alt?'#F2CF7E':'#ff8a80','right',800);
  // 地面
  const gg=c.createLinearGradient(0,gy(),0,H);gg.addColorStop(0,'#0e2a2a');gg.addColorStop(1,'#031012');c.fillStyle=gg;c.fillRect(0,gy(),W,H-gy());c.strokeStyle='#2EC4B6';c.lineWidth=2;c.beginPath();c.moveTo(0,gy());c.lineTo(W,gy());c.stroke();
+ if(L.crowd){const x0=xOf(L.crowd[0]),x1=xOf(L.crowd[1]);const cols=['#F2CF7E','#ff8a80','#7FF3E3','#cfe8ee','#f6a5c0'];let i=0;for(let x=x0;x<x1;x+=7,i++){const yb=gy()-(i%2?1:3);c.fillStyle=cols[i%5];c.fillRect(x-2.5,yb-10,5,9);c.beginPath();c.arc(x,yb-13,3,0,7);c.fill()}
+  const lx=(x0+x1)/2;c.strokeStyle='rgba(255,200,120,.8)';c.setLineDash([4,4]);c.lineWidth=1.5;c.strokeRect(x0-4,gy()-26,x1-x0+8,24);c.setLineDash([])}
  L.obs.forEach(o=>building(o,state==='done'));
+ if(L.crowd){const lx=(xOf(L.crowd[0])+xOf(L.crowd[1]))/2;rr(lx-46,gy()-50,92,20,8);c.fillStyle='rgba(4,16,31,.85)';c.fill();txt('👥 園遊會人群',lx,gy()-35,12,'#ffd28a')}
  // 起飛點 H
  const hx=xOf(HOME);glow(hx,gy()-6,40,'rgba(242,207,126,.5)');c.fillStyle='#F2CF7E';c.beginPath();c.moveTo(hx-12,gy()-2);c.lineTo(hx,gy()-16);c.lineTo(hx+12,gy()-2);c.fill();txt('H',hx,gy()+18,14,'#F2CF7E');
  txt(L.tip,W/2,22,13,'#cfe8ee','center',700)}
@@ -126,11 +129,11 @@ function draw(now){c.setTransform(DPR,0,0,DPR,0,0);scene();const h=+rg.value;con
  if(state==='fly')anim=requestAnimationFrame(draw);else{scene();c.strokeStyle='#2EC4B6';c.lineWidth=4;c.beginPath();pts.forEach((q,i)=>i?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1]));c.stroke();pkg(p[0],p[1]);drone(p[0],p[1],1,0)}}
 function judge(h){const L=LEVELS[lv],rope=L.rope||0,eff=h-rope;const top=Math.max(...L.obs.map(o=>o[2]));const m=eff-top;
  if(eff<=top)return{s:0,cls:'bad',t:rope?'物資撞上去了！':'撞樓了！',d:rope?'返航高度 '+h+' m，但下面吊著 '+rope+' m 的繩子，物資只在 '+eff+' m。<br>這關最高障礙物 <b>'+top+' m</b>，<b>繩長也要算進去</b>。':'這關最高的障礙物是 <b>'+top+' m</b>，你的返航高度只有 '+h+' m。<br>返航高度要比沿路最高的障礙物再高一點。'};
- const miss=[];if(L.night&&!AP.night)miss.push('夜間飛行');if(L.drop&&!AP.drop)miss.push('投擲物件');if(h>LIMIT&&!AP.alt)miss.push('超過 400 呎（120 m）');
+ const miss=[];if(L.night&&!AP.night)miss.push('夜間飛行');if(L.drop&&!AP.drop)miss.push('投擲物件');if(L.crowd&&!AP.crowd)miss.push('人群上空');if(h>LIMIT&&!AP.alt)miss.push('超過 400 呎（120 m）');
  if(miss.length)return{s:0,cls:'bad',t:'沒申請就飛，違規了',d:'這趟任務要先申請民航局核准：<b>'+miss.join('、')+'</b>。<br>先按「📝 申請民航局核准」勾選再返航。'+(h>LIMIT&&top+10<=LIMIT?'<br>其實這關設 '+(top+10+rope)+'～'+Math.min(LIMIT,top+30+rope)+' m 就夠了，不用超過 120 m。':'')};
- const extra=[];if(AP.night&&!L.night)extra.push('夜間');if(AP.drop&&!L.drop)extra.push('投擲');if(AP.alt&&h<=LIMIT)extra.push('超過 120 m');
- const ok=[];if(L.night)ok.push('夜間');if(L.drop)ok.push('投擲');if(h>LIMIT)ok.push('超過 120 m');
- const ex=(ok.length?'<br><span class="ok">有先申請（'+ok.join('、')+'），這趟是合法的。</span>':'')+(extra.length?'<br><span class="warn">這關不需要申請：'+extra.join('、')+'。</span>':'');
+ const extra=[];if(AP.night&&!L.night)extra.push('夜間');if(AP.drop&&!L.drop)extra.push('投擲');if(AP.crowd&&!L.crowd)extra.push('人群上空');if(AP.alt&&h<=LIMIT)extra.push('超過 120 m');
+ const ok=[];if(L.night)ok.push('夜間');if(L.drop)ok.push('投擲');if(L.crowd)ok.push('人群上空');if(h>LIMIT)ok.push('超過 120 m');
+ const ex=(ok.length?'<br><span class="ok">有先申請（'+ok.join('、')+'），這趟是合法的。</span>':'')+(L.crowd?'<br><span style="font-size:14px">實務上能繞開人群，就盡量不要從人群上空飛。</span>':'')+(extra.length?'<br><span class="warn">這關不需要申請：'+extra.join('、')+'。</span>':'');
  const base=rope?'物資離最高障礙物（'+top+' m）':'比最高障礙物（'+top+' m）高';
  if(m<10)return{s:50,cls:'warn',t:'好險，差點擦到',d:(rope?'物資只比最高障礙物高 ':'只比最高障礙物高 ')+m+' m，GPS、氣壓計都有誤差，實際飛可能就撞了。<br>建議多留 10～30 m 安全距離。'+(top+10+rope>LIMIT&&!AP.alt?'<br>這關卡在 120 m 上限，先申請核准就能飛得更安全。':'')+ex};
  if(m<=30)return{s:100,cls:'ok',t:'完美返航！',d:(rope?'物資離最高障礙物（'+top+' m）還有 '+m+' m，繩長算對了！':'比最高障礙物（'+top+' m）高 '+m+' m，安全又不浪費電。')+ex};
@@ -143,18 +146,18 @@ function showResult(){const r=res.j;total+=r.s;document.getElementById('sc').tex
  document.getElementById('rt').onclick=()=>{total-=r.s;document.getElementById('sc').textContent=total;ov.classList.remove('on');reset()}}
 function final(){const g=total>=450?'返航大師':total>=350?'合格飛手':total>=200?'還要多練':'先別按返航';
  const share='我在「返航高度挑戰」拿到 '+total+' / 500 分（'+g+'）！按下自動返航，你的無人機會撞樓嗎？來挑戰 👉 '+location.href;
- card.innerHTML='<h2>總成績</h2><div class="big">'+total+'<span style="font-size:24px;color:#9fd8cf"> / 500</span></div><p class="warn" style="font-size:22px;font-weight:900">'+g+'</p><p>記住口訣：<b>先看最高障礙物，再多留 10～30 m；吊掛要加上繩長；超過 120 m、夜間、投擲，都要先申請核准。</b></p><button class="btn alt" id="sh">📤 分享給朋友挑戰</button><button class="btn" id="ag" style="background:#1b3a4e;box-shadow:none;font-size:16px;padding:12px">再玩一次</button><p class="note" style="margin-top:14px">想學飛、考操作證？歡迎私訊「鋒哥飛行」<br>各機型返航方式不同，以說明書為準；法規以民航局最新公告為準</p>';
+ card.innerHTML='<h2>總成績</h2><div class="big">'+total+'<span style="font-size:24px;color:#9fd8cf"> / 500</span></div><p class="warn" style="font-size:22px;font-weight:900">'+g+'</p><p>記住口訣：<b>先看最高障礙物，再多留 10～30 m；吊掛要加上繩長；超過 120 m、夜間、投擲、人群上空，都要先申請核准。</b></p><button class="btn alt" id="sh">📤 分享給朋友挑戰</button><button class="btn" id="ag" style="background:#1b3a4e;box-shadow:none;font-size:16px;padding:12px">再玩一次</button><p class="note" style="margin-top:14px">想學飛、考操作證？歡迎私訊「鋒哥飛行」<br>各機型返航方式不同，以說明書為準；法規以民航局最新公告為準</p>';
  ov.classList.add('on');
  document.getElementById('sh').onclick=async()=>{try{if(navigator.share){await navigator.share({title:'返航高度挑戰',text:share,url:location.href});return}}catch(e){}try{await navigator.clipboard.writeText(share);document.getElementById('sh').textContent='✅ 已複製，貼給朋友吧'}catch(e){prompt('複製這段分享給朋友：',share)}};
  document.getElementById('ag').onclick=()=>{ov.classList.remove('on');lv=0;total=0;document.getElementById('sc').textContent=0;reset()}}
 function reset(){AP={...ap0};state='idle';setAp();go.disabled=false;document.getElementById('lv').textContent=lv+1;rg.value=30;setH(30);cancelAnimationFrame(anim);draw(0)}
 go.onclick=()=>{if(state!=='idle')return;const h=+rg.value;res={crashU:crashU(h),j:judge(h)};if(h>LIMIT&&res.crashU===null){/* 違規但不撞：照樣飛完 */}state='fly';go.disabled=true;ap.disabled=true;t0=performance.now();anim=requestAnimationFrame(draw)};
 const ap=document.getElementById('ap');
-const NM={alt:'超過 120 m',night:'夜間',drop:'投擲'};
+const NM={alt:'超過 120 m',night:'夜間',drop:'投擲',crowd:'人群上空'};
 function setAp(){const on=Object.keys(NM).filter(k=>AP[k]);ap.classList.toggle('done',on.length>0);ap.textContent=on.length?'✅ 已核准：'+on.map(k=>NM[k]).join('＋')+'（點一下修改）':'📝 申請民航局核准';ap.disabled=state!=='idle'}
 ap.onclick=()=>{if(state!=='idle')return;
  const it=(k,a,b)=>'<label class="ck"><input type="checkbox" id="c_'+k+'"'+(AP[k]?' checked':'')+'><span><b>'+a+'</b><small>'+b+'</small></span></label>';
- card.innerHTML='<h2 class="warn">📝 申請民航局核准</h2><p style="font-size:15px">看看這趟任務，勾選要申請的項目：</p>'+it('alt','飛超過 400 呎（約 120 m）','高級第一組（G1）')+it('night','夜間飛行（日落後到日出前）','高級第一組（G1）')+it('drop','投擲或噴灑物件','高級第二組（G2）')+'<p style="font-size:13px;margin-top:8px">實際上要在每次任務前，由政府機關、學校或法人向民航局申請核准，並由持有專業操作證高級相應組別的人操作。</p><button class="btn alt" id="sd">送出申請</button><button class="btn" id="cx" style="background:#1b3a4e;box-shadow:none;font-size:16px;padding:12px">都不用申請</button><p class="note">遊戲簡化流程；法規以民航局最新公告為準</p>';
+ card.innerHTML='<h2 class="warn">📝 申請民航局核准</h2><p style="font-size:15px">看看這趟任務，勾選要申請的項目：</p>'+it('alt','飛超過 400 呎（約 120 m）','高級第一組（G1）')+it('night','夜間飛行（日落後到日出前）','高級第一組（G1）')+it('drop','投擲或噴灑物件','高級第二組（G2）')+it('crowd','人群聚集或室外集會遊行上空','高級第三組（G3）')+'<p style="font-size:13px;margin-top:8px">實際上要在每次任務前，由政府機關、學校或法人向民航局申請核准，並由持有專業操作證高級相應組別的人操作。</p><button class="btn alt" id="sd">送出申請</button><button class="btn" id="cx" style="background:#1b3a4e;box-shadow:none;font-size:16px;padding:12px">都不用申請</button><p class="note">遊戲簡化流程；法規以民航局最新公告為準</p>';
  ov.classList.add('on');
  document.getElementById('cx').onclick=()=>{AP={...ap0};setAp();setH(+rg.value);draw(0);ov.classList.remove('on')};
  document.getElementById('sd').onclick=()=>{const n={};Object.keys(NM).forEach(k=>n[k]=document.getElementById('c_'+k).checked?1:0);const on=Object.keys(NM).filter(k=>n[k]);
