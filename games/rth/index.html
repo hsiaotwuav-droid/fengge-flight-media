@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>返航高度挑戰｜鋒哥飛行</title>
+<meta name="description" content="按下自動返航，你的無人機會撞樓嗎？5 關返航高度挑戰，看你能拿幾分。">
+<meta property="og:title" content="返航高度挑戰｜鋒哥飛行">
+<meta property="og:description" content="按下自動返航，你的無人機會撞樓嗎？5 關挑戰，看你能拿幾分。">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#04101f;color:#e8fbf8;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;overflow:hidden}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;max-width:560px;margin:0 auto}
+header{padding:calc(env(safe-area-inset-top) + 10px) 16px 6px;display:flex;align-items:center;justify-content:space-between}
+.brand{font-weight:900;font-size:15px;color:#F2CF7E;letter-spacing:1px}
+.lvl{font-size:14px;color:#9fd8cf}
+.lvl b{color:#fff;font-size:16px}
+#cv{flex:1;width:100%;display:block;touch-action:none}
+.panel{padding:10px 16px calc(env(safe-area-inset-bottom) + 14px);background:linear-gradient(180deg,rgba(4,16,31,0),#04101f 30%)}
+.row{display:flex;align-items:center;gap:12px}
+.hval{min-width:92px;text-align:center;font-weight:900;font-size:28px;color:#7FF3E3}
+.hval small{font-size:14px;color:#9fd8cf;font-weight:700}
+input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:10px;border-radius:6px;background:linear-gradient(90deg,#2EC4B6 0%,#2EC4B6 var(--p,30%),#1b3a4e var(--p,30%));outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:34px;height:34px;border-radius:50%;background:#F2CF7E;border:4px solid #04101f;box-shadow:0 0 0 2px #F2CF7E,0 0 18px rgba(242,207,126,.6)}
+input[type=range]::-moz-range-thumb{width:30px;height:30px;border-radius:50%;background:#F2CF7E;border:4px solid #04101f}
+.btn{margin-top:12px;width:100%;border:0;border-radius:16px;padding:16px;font-size:20px;font-weight:900;font-family:inherit;background:linear-gradient(180deg,#e5463d,#b8241c);color:#fff;box-shadow:0 6px 20px rgba(229,70,61,.35)}
+.btn:disabled{opacity:.45}
+.btn.alt{background:linear-gradient(180deg,#2EC4B6,#14857b);box-shadow:0 6px 20px rgba(46,196,182,.3)}
+.tip{margin-top:8px;font-size:12px;color:rgba(190,235,255,.6);text-align:center;line-height:1.5}
+#ov{position:fixed;inset:0;background:rgba(2,8,16,.82);display:none;align-items:center;justify-content:center;padding:24px;z-index:5}
+#ov.on{display:flex}
+.card{width:100%;max-width:420px;background:linear-gradient(180deg,#0e2a3d,#06182a);border:1px solid rgba(127,243,227,.35);border-radius:22px;padding:24px 20px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.card h2{font-size:28px;font-weight:900;margin-bottom:6px}
+.card .big{font-size:56px;font-weight:900;color:#F2CF7E;line-height:1.1}
+.card p{font-size:16px;line-height:1.65;color:#cfe8ee;margin:10px 0}
+.card .note{font-size:12px;color:rgba(190,235,255,.55)}
+.card .btn{margin-top:14px}
+.card a{color:#7FF3E3}
+.ok{color:#7FF3E3}.bad{color:#ff6b62}.warn{color:#F2CF7E}
+</style>
+</head>
+<body>
+<div id="app">
+ <header><div class="brand">鋒哥飛行｜返航高度挑戰</div><div class="lvl">第 <b id="lv">1</b> / 5 關　總分 <b id="sc">0</b></div></header>
+ <canvas id="cv"></canvas>
+ <div class="panel">
+  <div class="row"><div class="hval"><span id="hv">30</span><small> m</small></div><input id="rg" type="range" min="10" max="160" step="1" value="30"></div>
+  <button id="go" class="btn">▶ 按下自動返航</button>
+  <div class="tip">拖拉桿設定返航高度：飛機會先爬到這個高度，再直線飛回起飛點。<br>各機型返航方式不同，以說明書為準；法規以民航局最新公告為準。</div>
+ </div>
+</div>
+<div id="ov"><div class="card" id="card"></div></div>
+<script>
+const cv=document.getElementById('cv'),c=cv.getContext('2d');
+const rg=document.getElementById('rg'),hv=document.getElementById('hv'),go=document.getElementById('go');
+const ov=document.getElementById('ov'),card=document.getElementById('card');
+const LIMIT=120; // 400 呎約 120 公尺
+// 每關：障礙物 [相對位置0~1, 寬度比例, 高度m, 類型, 顯示高度?]
+const LEVELS=[
+ {obs:[[.30,.10,25,'b',1],[.52,.12,42,'b',1],[.72,.08,30,'b',1]],tip:'先看四周：最高的障礙物有多高？'},
+ {obs:[[.25,.09,35,'b',1],[.47,.05,58,'t',1],[.66,.13,48,'b',1]],tip:'電塔也算障礙物，細細的更容易漏看。'},
+ {obs:[[.22,.11,50,'b',1],[.43,.10,76,'b',0],[.66,.09,62,'b',1]],tip:'有一棟沒標高度，用左邊的刻度估估看。'},
+ {obs:[[.20,.07,40,'t',0],[.40,.14,88,'b',0],[.62,.09,70,'b',0],[.80,.06,55,'t',0]],tip:'全部沒標高度了，看刻度判斷最高點。'},
+ {obs:[[.24,.12,96,'b',0],[.46,.06,108,'t',0],[.68,.12,84,'b',0]],tip:'最後一關：障礙物很高，別忘了 120 公尺的法規上限。'},
+];
+let lv=0,total=0,state='idle',t0=0,anim=null,res=null,W=0,H=0,DPR=1;
+function resize(){DPR=Math.min(2,window.devicePixelRatio||1);W=cv.clientWidth;H=cv.clientHeight;cv.width=W*DPR;cv.height=H*DPR;c.setTransform(DPR,0,0,DPR,0,0);draw(0)}
+window.addEventListener('resize',resize);
+// 座標：地面在 H*0.9，最高顯示 160m
+function gy(){return H*0.9}
+function yOf(m){return gy()-(m/160)*(H*0.82)}
+function xOf(r){const L=W*0.16,R=W*0.92;return L+(R-L)*r}
+const HOME=1.0,TAKE=0.0;
+function setH(v){hv.textContent=v;rg.style.setProperty('--p',((v-10)/150*100)+'%');hv.style.color=v>LIMIT?'#ff6b62':'#7FF3E3'}
+rg.addEventListener('input',()=>{if(state!=='idle')return;setH(+rg.value);draw(0)});
+function glow(x,y,r,col){const g=c.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,col);g.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=g;c.fillRect(x-r,y-r,r*2,r*2)}
+function rr(x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
+function txt(s,x,y,sz,col,al,wt){c.font=(wt||800)+' '+sz+'px "Noto Sans TC","PingFang TC",sans-serif';c.textAlign=al||'center';c.lineWidth=4;c.strokeStyle='rgba(2,10,18,.85)';c.strokeText(s,x,y);c.fillStyle=col;c.fillText(s,x,y)}
+function drone(x,y,s,tilt){c.save();c.translate(x,y);c.rotate(tilt||0);c.scale(s,s);glow(0,0,46,'rgba(127,243,227,.35)');c.strokeStyle='#cfe8ee';c.lineWidth=5;c.lineCap='round';c.beginPath();c.moveTo(-18,-6);c.lineTo(18,-6);c.stroke();[[-20,-10],[20,-10]].forEach(p=>{c.strokeStyle='#7FF3E3';c.lineWidth=3;c.beginPath();c.ellipse(p[0],p[1],14,3,0,0,7);c.stroke()});rr(-10,-8,20,12,4);c.fillStyle='#0b1a28';c.fill();c.strokeStyle='#F2CF7E';c.lineWidth=2;c.stroke();c.restore()}
+function building(o,showAll){const x=xOf(o[0]),w=W*o[1],top=yOf(o[2]);
+ if(o[3]==='t'){c.strokeStyle='#9fb8c8';c.lineWidth=2.5;c.beginPath();c.moveTo(x-w/2,gy());c.lineTo(x,top);c.lineTo(x+w/2,gy());const hh=gy()-top;[.3,.55,.8].forEach(f=>{const yy=gy()-hh*f,ww=w*(1-f)*.6+6;c.moveTo(x-ww,yy);c.lineTo(x+ww,yy)});c.stroke();c.fillStyle='#ff5a4e';c.beginPath();c.arc(x,top,3,0,7);c.fill()}
+ else{const g=c.createLinearGradient(0,top,0,gy());g.addColorStop(0,'#1c3a52');g.addColorStop(1,'#07131f');c.fillStyle=g;c.fillRect(x-w/2,top,w,gy()-top);c.strokeStyle='rgba(127,243,227,.45)';c.lineWidth=1.5;c.strokeRect(x-w/2,top,w,gy()-top);
+  for(let yy=top+10;yy<gy()-12;yy+=16)for(let xx=x-w/2+6;xx<x+w/2-8;xx+=12){if(Math.sin(xx*12.9+yy*7.3)>.1){c.fillStyle='rgba(255,220,150,.55)';c.fillRect(xx,yy,5,7)}}}
+ if(o[4]||showAll){txt(o[2]+' m',x,top-10,15,'#F2CF7E')}}
+function scene(){const L=LEVELS[lv];
+ const g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,'#071a33');g.addColorStop(1,'#0b2a3d');c.fillStyle=g;c.fillRect(0,0,W,H);
+ // 刻度
+ c.strokeStyle='rgba(190,235,255,.25)';c.lineWidth=1;txt('高度',8,yOf(160)-6,12,'#9fd8cf','left',700);
+ for(let m=0;m<=160;m+=20){const y=yOf(m);c.beginPath();c.moveTo(34,y);c.lineTo(W,y);c.setLineDash([3,6]);c.stroke();c.setLineDash([]);txt(m+'',30,y+4,11,'rgba(190,235,255,.7)','right',600)}
+ // 法規上限
+ const yl=yOf(LIMIT);c.strokeStyle='rgba(255,90,78,.9)';c.lineWidth=2.5;c.beginPath();c.moveTo(34,yl);c.lineTo(W,yl);c.stroke();txt('400 呎 ≈ 120 m（超過要先申請核准）',W-8,yl-6,12,'#ff8a80','right',800);
+ // 地面
+ const gg=c.createLinearGradient(0,gy(),0,H);gg.addColorStop(0,'#0e2a2a');gg.addColorStop(1,'#031012');c.fillStyle=gg;c.fillRect(0,gy(),W,H-gy());c.strokeStyle='#2EC4B6';c.lineWidth=2;c.beginPath();c.moveTo(0,gy());c.lineTo(W,gy());c.stroke();
+ L.obs.forEach(o=>building(o,state==='done'));
+ // 起飛點 H
+ const hx=xOf(HOME);glow(hx,gy()-6,40,'rgba(242,207,126,.5)');c.fillStyle='#F2CF7E';c.beginPath();c.moveTo(hx-12,gy()-2);c.lineTo(hx,gy()-16);c.lineTo(hx+12,gy()-2);c.fill();txt('H',hx,gy()+18,14,'#F2CF7E');
+ txt(L.tip,W/2,22,13,'#cfe8ee','center',700)}
+function path(h){const x0=xOf(TAKE),x1=xOf(HOME),yh=yOf(h);return [[x0,gy()-8],[x0,yh],[x1,yh],[x1,gy()-8]]}
+function at(P,u){let L=[],tot=0;for(let i=1;i<P.length;i++){const d=Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);L.push(d);tot+=d}let s=u*tot;for(let i=0;i<L.length;i++){if(s<=L[i]||i==L.length-1){const f=Math.min(1,s/L[i]);return [P[i][0]+(P[i+1][0]-P[i][0])*f,P[i][1]+(P[i+1][1]-P[i][1])*f]}s-=L[i]}}
+function crashU(h){// 回傳撞擊時的路徑進度（0~1）或 null
+ const P=path(h);let tot=0,Ls=[];for(let i=1;i<P.length;i++){const d=Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);Ls.push(d);tot+=d}
+ let hit=null;for(const o of LEVELS[lv].obs){if(o[2]>=h){const xl=xOf(o[0])-W*o[1]/2-(o[3]==='t'?0:0);const xs=o[3]==='t'?xOf(o[0])-W*o[1]*.15:xl;if(hit===null||xs<hit)hit=xs}}
+ if(hit===null)return null;const along=Ls[0]+(hit-P[1][0]);return Math.max(0,along/tot)}
+function draw(now){c.setTransform(DPR,0,0,DPR,0,0);scene();const h=+rg.value;const P=path(h);
+ // 預覽虛線
+ if(state==='idle'){c.setLineDash([8,8]);c.strokeStyle='rgba(127,243,227,.6)';c.lineWidth=2;c.beginPath();P.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.stroke();c.setLineDash([]);drone(xOf(TAKE),gy()-10,1,0);txt('起飛點',xOf(TAKE),gy()+18,13,'#9fd8cf');return}
+ const dur=3.2,el=(now-t0)/1000;const cu=res.crashU;let u=Math.min(1,el/dur);if(cu!==null&&u>cu)u=cu;
+ // 已飛軌跡
+ const pts=[];for(let i=0;i<=40;i++)pts.push(at(P,u*i/40));c.strokeStyle='#2EC4B6';c.lineWidth=4;c.shadowColor='#7FF3E3';c.shadowBlur=10;c.beginPath();pts.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.stroke();c.shadowBlur=0;
+ const p=at(P,u);
+ if(cu!==null&&el/dur>=cu){const k=Math.min(1,(el/dur-cu)*3);glow(p[0],p[1],120*k+20,'rgba(255,90,78,.6)');glow(p[0],p[1],50,'rgba(255,230,190,.9)');c.strokeStyle='rgba(255,200,160,.9)';c.lineWidth=3;for(let i=0;i<12;i++){const a=i/12*6.283;c.beginPath();c.moveTo(p[0]+Math.cos(a)*14,p[1]+Math.sin(a)*14);c.lineTo(p[0]+Math.cos(a)*(30+40*k),p[1]+Math.sin(a)*(30+40*k));c.stroke()}
+  drone(p[0]-6,p[1]+80*k*k,1,1.2*k);if(k>=1&&state==='fly'){state='done';setTimeout(showResult,500)}}
+ else{drone(p[0],p[1]+Math.sin(el*12)*1.5,1,0);if(u>=1&&state==='fly'){state='done';setTimeout(showResult,400)}}
+ if(state==='fly')anim=requestAnimationFrame(draw);else{scene();c.strokeStyle='#2EC4B6';c.lineWidth=4;c.beginPath();pts.forEach((q,i)=>i?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1]));c.stroke();drone(p[0],p[1],1,0)}}
+function judge(h){const top=Math.max(...LEVELS[lv].obs.map(o=>o[2]));const m=h-top;
+ if(h<=top)return{s:0,cls:'bad',t:'撞樓了！',d:'這關最高的障礙物是 <b>'+top+' m</b>，你的返航高度只有 '+h+' m。<br>返航高度要比沿路最高的障礙物再高一點。'};
+ if(h>LIMIT)return{s:0,cls:'bad',t:'飛太高，違規了',d:'沒有申請核准，離地不能超過 400 呎（約 120 公尺）。<br>這關最高障礙物 '+top+' m，設 '+(top+10)+'～'+Math.min(LIMIT,top+30)+' m 就夠了。'};
+ if(m<10)return{s:50,cls:'warn',t:'好險，差點擦到',d:'只比最高障礙物高 '+m+' m，GPS、氣壓計都有誤差，實際飛可能就撞了。<br>建議多留 10～30 m 安全距離。'};
+ if(m<=30)return{s:100,cls:'ok',t:'完美返航！',d:'比最高障礙物（'+top+' m）高 '+m+' m，安全又不浪費電。'};
+ return{s:70,cls:'warn',t:'安全，但飛太高了',d:'比最高障礙物高了 '+m+' m。爬太高會多花電、高空風也比較大。<br>留 10～30 m 安全距離就好。'}}
+function showResult(){const r=res.j;total+=r.s;document.getElementById('sc').textContent=total;draw(0);
+ const last=lv>=LEVELS.length-1;
+ card.innerHTML='<h2 class="'+r.cls+'">'+r.t+'</h2><div class="big">+'+r.s+'</div><p>'+r.d+'</p>'+(last?'<button class="btn alt" id="nx">看總成績</button>':'<button class="btn alt" id="nx">下一關 ▶</button>')+'<button class="btn" id="rt" style="background:#1b3a4e;box-shadow:none;font-size:16px;padding:12px">這關重來一次</button>';
+ ov.classList.add('on');
+ document.getElementById('nx').onclick=()=>{ov.classList.remove('on');if(last)final();else{lv++;reset()}};
+ document.getElementById('rt').onclick=()=>{total-=r.s;document.getElementById('sc').textContent=total;ov.classList.remove('on');reset()}}
+function final(){const g=total>=450?'返航大師':total>=350?'合格飛手':total>=200?'還要多練':'先別按返航';
+ const share='我在「返航高度挑戰」拿到 '+total+' / 500 分（'+g+'）！按下自動返航，你的無人機會撞樓嗎？來挑戰 👉 '+location.href;
+ card.innerHTML='<h2>總成績</h2><div class="big">'+total+'<span style="font-size:24px;color:#9fd8cf"> / 500</span></div><p class="warn" style="font-size:22px;font-weight:900">'+g+'</p><p>記住口訣：<b>先看最高障礙物，再多留 10～30 m；沒有申請核准，不超過 120 m。</b></p><button class="btn alt" id="sh">📤 分享給朋友挑戰</button><button class="btn" id="ag" style="background:#1b3a4e;box-shadow:none;font-size:16px;padding:12px">再玩一次</button><p class="note" style="margin-top:14px">想學飛、考操作證？歡迎私訊「鋒哥飛行」<br>各機型返航方式不同，以說明書為準；法規以民航局最新公告為準</p>';
+ ov.classList.add('on');
+ document.getElementById('sh').onclick=async()=>{try{if(navigator.share){await navigator.share({title:'返航高度挑戰',text:share,url:location.href});return}}catch(e){}try{await navigator.clipboard.writeText(share);document.getElementById('sh').textContent='✅ 已複製，貼給朋友吧'}catch(e){prompt('複製這段分享給朋友：',share)}};
+ document.getElementById('ag').onclick=()=>{ov.classList.remove('on');lv=0;total=0;document.getElementById('sc').textContent=0;reset()}}
+function reset(){state='idle';go.disabled=false;document.getElementById('lv').textContent=lv+1;rg.value=30;setH(30);cancelAnimationFrame(anim);draw(0)}
+go.onclick=()=>{if(state!=='idle')return;const h=+rg.value;res={crashU:crashU(h),j:judge(h)};if(h>LIMIT&&res.crashU===null){/* 違規但不撞：照樣飛完 */}state='fly';go.disabled=true;t0=performance.now();anim=requestAnimationFrame(draw)};
+setH(30);resize();
+</script>
+</body>
+</html>
