@@ -120,8 +120,8 @@ function draw(){c.setTransform(DPR,0,0,DPR,0,0);const L=LEVELS[lv];
  // 機頭燈
  c.fillStyle='#7FF3E3';c.beginPath();c.arc(cx,cy-s*.42,4,0,7);c.fill();
  // 標記
- marks.forEach(m=>{if(m.ok){c.strokeStyle='#7FF3E3';c.lineWidth=3;c.beginPath();c.arc(m.x,m.y,m.r,0,7);c.stroke();txt('✓ '+ISSUE[m.id].n,m.lx,m.ly,12,'#7FF3E3')}
-  else if(m.miss){c.strokeStyle='#ff6b62';c.setLineDash([6,5]);c.lineWidth=3;c.beginPath();c.arc(m.x,m.y,m.r,0,7);c.stroke();c.setLineDash([]);txt('漏了：'+ISSUE[m.id].n,m.lx,m.ly,12,'#ff6b62')}
+ marks.forEach(m=>{if(m.ok){c.strokeStyle='#7FF3E3';c.lineWidth=3;c.beginPath();c.arc(m.x,m.y,m.r,0,7);c.stroke();txt('✓',m.x+m.r*.7,m.y-m.r*.7,18,'#7FF3E3','center',900)}
+  else if(m.miss){c.strokeStyle='#ff6b62';c.setLineDash([6,5]);c.lineWidth=3;c.beginPath();c.arc(m.x,m.y,m.r,0,7);c.stroke();c.setLineDash([]);txt('✗',m.x+m.r*.7,m.y-m.r*.7,18,'#ff6b62','center',900)}
   else{const k=Math.max(0,1-(performance.now()-m.t)/900);if(k>0){c.globalAlpha=k;txt('這裡正常',m.x,m.y,13,'#F2CF7E');c.globalAlpha=1}}});
  // 計時條
  if(state==='play'){const left=Math.max(0,TIME-(performance.now()-tStart)/1000);const w=(W-20)*left/TIME;rr(10,H-14,W-20,8,4);c.fillStyle='rgba(4,16,31,.7)';c.fill();rr(10,H-14,Math.max(8,w),8,4);c.fillStyle=left<8?'#ff6b62':'#F2CF7E';c.fill();
