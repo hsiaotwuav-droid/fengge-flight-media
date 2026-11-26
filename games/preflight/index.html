@@ -34,11 +34,15 @@ header{display:flex;justify-content:space-between;align-items:center;padding:10p
 .card .note{font-size:12px;color:rgba(190,235,255,.55)}
 .card .btn{margin-top:12px}
 .ok{color:#7FF3E3}.bad{color:#ff6b62}.warn{color:#F2CF7E}
+header{position:relative;z-index:6}
+.hm{flex:none;width:34px;height:34px;border-radius:10px;background:#1b3a4e;border:1px solid rgba(127,243,227,.35);display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:18px;margin-right:8px}
+header .brand{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn.lk{display:block;text-decoration:none;text-align:center;background:#1b3a4e;box-shadow:none;font-size:16px;padding:12px;border:1px solid rgba(242,207,126,.6);color:#F2CF7E}
 </style>
 </head>
 <body>
 <div id="app">
- <header><div class="brand">鋒哥飛行｜起飛前 30 秒檢查</div><div class="lvl">第 <b id="lv">1</b> / 5 關　總分 <b id="sc">0</b></div></header>
+ <header><a class="hm" href="../" aria-label="回遊戲入口">🏠</a><div class="brand">鋒哥飛行｜起飛前 30 秒檢查</div><div class="lvl">第 <b id="lv">1</b> / 5 關　總分 <b id="sc">0</b></div></header>
  <canvas id="cv"></canvas>
  <div class="panel" id="panel"></div>
 </div>
@@ -166,7 +170,7 @@ function showResult(r){total+=r.s;document.getElementById('sc').textContent=tota
  document.getElementById('rt').onclick=()=>{total-=r.s;document.getElementById('sc').textContent=total;ov.classList.remove('on');intro()}}
 function final(){const g=total>=450?'檢查達人':total>=350?'合格飛手':total>=200?'還要多練':'先別起飛';
  const share='我在「起飛前 30 秒檢查」拿到 '+total+' / 500 分（'+g+'）！你起飛前都有檢查嗎？來挑戰 👉 '+location.href.split('?')[0];
- card.innerHTML='<h2>總成績</h2><div class="big">'+total+'<span style="font-size:24px;color:#9fd8cf"> / 500</span></div><p class="warn" style="font-size:22px;font-weight:900">'+g+'</p><p>起飛前 30 秒，記得看：<br><b>槳葉、電池、註冊號碼、遙控器電量、GPS、指南針、起飛區有沒有人。</b></p><button class="btn alt" id="sh">📤 分享給朋友挑戰</button><button class="btn dk" id="ag" style="font-size:16px;padding:12px">再玩一次</button><p class="note" style="margin-top:12px">想學飛、考操作證？歡迎私訊「鋒哥飛行」<br>各機型檢查項目不同，以說明書為準；法規以民航局最新公告為準</p>';
+ card.innerHTML='<h2>總成績</h2><div class="big">'+total+'<span style="font-size:24px;color:#9fd8cf"> / 500</span></div><p class="warn" style="font-size:22px;font-weight:900">'+g+'</p><p>起飛前 30 秒，記得看：<br><b>槳葉、電池、註冊號碼、遙控器電量、GPS、指南針、起飛區有沒有人。</b></p><button class="btn alt" id="sh">📤 分享給朋友挑戰</button><button class="btn dk" id="ag" style="font-size:16px;padding:12px">再玩一次</button><a class="btn lk" href="../">🎮 玩其他小遊戲</a><p class="note" style="margin-top:12px">想學飛、考操作證？歡迎私訊「鋒哥飛行」<br>各機型檢查項目不同，以說明書為準；法規以民航局最新公告為準</p>';
  ov.classList.add('on');
  document.getElementById('sh').onclick=async()=>{try{if(navigator.share){await navigator.share({title:'起飛前 30 秒檢查',text:share});return}}catch(e){}try{await navigator.clipboard.writeText(share);document.getElementById('sh').textContent='✅ 已複製，貼給朋友吧'}catch(e){prompt('複製這段分享給朋友：',share)}};
  document.getElementById('ag').onclick=()=>{ov.classList.remove('on');lv=0;total=0;document.getElementById('sc').textContent=0;intro()}}

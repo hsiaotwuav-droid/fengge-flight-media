@@ -43,11 +43,15 @@ input[type=range]::-moz-range-thumb{width:30px;height:30px;border-radius:50%;bac
 .card .btn{margin-top:14px}
 .card a{color:#7FF3E3}
 .ok{color:#7FF3E3}.bad{color:#ff6b62}.warn{color:#F2CF7E}
+header{position:relative;z-index:6}
+.hm{flex:none;width:34px;height:34px;border-radius:10px;background:#1b3a4e;border:1px solid rgba(127,243,227,.35);display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:18px;margin-right:8px}
+header .brand{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn.lk{display:block;text-decoration:none;text-align:center;background:#1b3a4e;box-shadow:none;font-size:16px;padding:12px;border:1px solid rgba(242,207,126,.6);color:#F2CF7E}
 </style>
 </head>
 <body>
 <div id="app">
- <header><div class="brand">鋒哥飛行｜返航高度挑戰</div><div class="lvl">第 <b id="lv">1</b> / 5 關　總分 <b id="sc">0</b></div></header>
+ <header><a class="hm" href="../" aria-label="回遊戲入口">🏠</a><div class="brand">鋒哥飛行｜返航高度挑戰</div><div class="lvl">第 <b id="lv">1</b> / 5 關　總分 <b id="sc">0</b></div></header>
  <canvas id="cv"></canvas>
  <div class="panel">
   <div class="row"><div class="hval"><span id="hv">30</span><small> m</small></div><input id="rg" type="range" min="10" max="160" step="1" value="30"></div>
@@ -146,7 +150,7 @@ function showResult(){const r=res.j;total+=r.s;document.getElementById('sc').tex
  document.getElementById('rt').onclick=()=>{total-=r.s;document.getElementById('sc').textContent=total;ov.classList.remove('on');reset()}}
 function final(){const g=total>=450?'返航大師':total>=350?'合格飛手':total>=200?'還要多練':'先別按返航';
  const share='我在「返航高度挑戰」拿到 '+total+' / 500 分（'+g+'）！按下自動返航，你的無人機會撞樓嗎？來挑戰 👉 '+location.href;
- card.innerHTML='<h2>總成績</h2><div class="big">'+total+'<span style="font-size:24px;color:#9fd8cf"> / 500</span></div><p class="warn" style="font-size:22px;font-weight:900">'+g+'</p><p>記住口訣：<b>先看最高障礙物，再多留 10～30 m；吊掛要加上繩長；超過 120 m、夜間、投擲、人群上空，都要先申請核准。</b></p><button class="btn alt" id="sh">📤 分享給朋友挑戰</button><button class="btn" id="ag" style="background:#1b3a4e;box-shadow:none;font-size:16px;padding:12px">再玩一次</button><p class="note" style="margin-top:14px">想學飛、考操作證？歡迎私訊「鋒哥飛行」<br>各機型返航方式不同，以說明書為準；法規以民航局最新公告為準</p>';
+ card.innerHTML='<h2>總成績</h2><div class="big">'+total+'<span style="font-size:24px;color:#9fd8cf"> / 500</span></div><p class="warn" style="font-size:22px;font-weight:900">'+g+'</p><p>記住口訣：<b>先看最高障礙物，再多留 10～30 m；吊掛要加上繩長；超過 120 m、夜間、投擲、人群上空，都要先申請核准。</b></p><button class="btn alt" id="sh">📤 分享給朋友挑戰</button><button class="btn" id="ag" style="background:#1b3a4e;box-shadow:none;font-size:16px;padding:12px">再玩一次</button><a class="btn lk" href="../">🎮 玩其他小遊戲</a><p class="note" style="margin-top:14px">想學飛、考操作證？歡迎私訊「鋒哥飛行」<br>各機型返航方式不同，以說明書為準；法規以民航局最新公告為準</p>';
  ov.classList.add('on');
  document.getElementById('sh').onclick=async()=>{try{if(navigator.share){await navigator.share({title:'返航高度挑戰',text:share,url:location.href});return}}catch(e){}try{await navigator.clipboard.writeText(share);document.getElementById('sh').textContent='✅ 已複製，貼給朋友吧'}catch(e){prompt('複製這段分享給朋友：',share)}};
  document.getElementById('ag').onclick=()=>{ov.classList.remove('on');lv=0;total=0;document.getElementById('sc').textContent=0;reset()}}
@@ -164,6 +168,7 @@ ap.onclick=()=>{if(state!=='idle')return;
   if(!on.length){AP={...ap0};setAp();setH(+rg.value);draw(0);ov.classList.remove('on');return}
   card.innerHTML='<h2>審核中…</h2><p>民航局正在看你的申請</p>';setTimeout(()=>{card.innerHTML='<div class="stamp">核准</div><h2 class="ok">申請通過！</h2><p>核准項目：<b>'+on.map(k=>NM[k]).join('、')+'</b><br>還是要比最高障礙物多留 10～30 m。</p><button class="btn alt" id="okb">回去設定返航高度</button>';document.getElementById('okb').onclick=()=>{ov.classList.remove('on');AP=n;setAp();setH(+rg.value);draw(0)}},1100)}};
 setH(30);resize();setAp();
+const fixOv=()=>{ov.style.top=document.querySelector('header').getBoundingClientRect().bottom+'px'};fixOv();window.addEventListener('resize',fixOv);
 </script>
 </body>
 </html>
