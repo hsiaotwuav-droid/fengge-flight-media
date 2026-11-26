@@ -116,9 +116,11 @@ function draw(){c.setTransform(DPR,0,0,DPR,0,0);const L=LEVELS[lv];
  else{rr(bx-bw/2,by-bh/2,bw,bh,5);c.fillStyle='#3b4a58';c.fill();c.strokeStyle='#c9a24a';c.lineWidth=2;c.stroke()}
  c.fillStyle='#7FF3E3';for(let k=0;k<4;k++)c.fillRect(bx-bw/2+6+k*(bw-12)/4,by+bh/2-7,(bw-12)/4-3,3);txt('電池',bx,by+4,11,'#cfe8ee','center',700);
  // 註冊號碼標示
- const lx=G.reg[0],ly=G.reg[1];rr(lx-s*.26,ly-4,s*.52,s*.15,4);
- if(has('reg')){c.strokeStyle='rgba(207,232,238,.25)';c.setLineDash([3,3]);c.lineWidth=1;c.stroke();c.setLineDash([])}
- else{c.fillStyle='#f4f7fa';c.fill();c.font='900 '+Math.max(9,s*.075)+'px sans-serif';c.textAlign='center';c.fillStyle='#0b1a33';c.fillText('註冊號碼 ●●●●',lx,ly+s*.09)}
+ const lx=G.reg[0],ly=G.reg[1]+s*.03,lw=s*.66,lh=s*.2;
+ if(has('reg')){c.save();c.translate(lx,ly);c.rotate(-.07);rr(-lw/2,-lh/2,lw,lh,4);c.fillStyle='#e9eef1';c.fill();c.strokeStyle='#9fb0ba';c.lineWidth=1.5;c.stroke();
+  c.fillStyle='#16283a';c.beginPath();c.moveTo(lw/2-lh*.55,-lh/2);c.lineTo(lw/2,-lh/2);c.lineTo(lw/2,-lh/2+lh*.55);c.closePath();c.fill();
+  c.fillStyle='#c3ccd2';c.beginPath();c.moveTo(lw/2-lh*.55,-lh/2);c.lineTo(lw/2,-lh/2+lh*.55);c.lineTo(lw/2-lh*.62,-lh/2+lh*.62);c.closePath();c.fill();c.restore()}
+ else{rr(lx-lw/2,ly-lh/2,lw,lh,4);c.fillStyle='#ffffff';c.fill();c.strokeStyle='#0b1a33';c.lineWidth=1.5;c.stroke();c.font='900 '+Math.max(10,s*.085)+'px "Noto Sans TC",sans-serif';c.textAlign='center';c.fillStyle='#0b1a33';c.fillText('註冊號碼',lx,ly-lh*.02);c.font='900 '+Math.max(9,s*.07)+'px sans-serif';c.fillText('●●●●●●',lx,ly+lh*.38)}
  // 機頭燈
  c.fillStyle='#7FF3E3';c.beginPath();c.arc(cx,cy-s*.42,4,0,7);c.fill();
  // 提示區
