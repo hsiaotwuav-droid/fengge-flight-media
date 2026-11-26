@@ -64,7 +64,7 @@ const LEVELS=[
  {iss:[],tip:'第 4 關：仔細看，有幾個問題？'},
  {iss:['bulge','compass','kid','rc'],tip:'最後一關：問題最多，30 秒內找完'},
 ];
-let hints=0,hintZ=null,hintT=0;
+let hints=0,hintZ=null,hintT=0,flashT=0,flashOk=1,cntT=0;
 let lv=0,total=0,state='idle',found=[],wrong=0,marks=[],tStart=0,anim=null,W=0,H=0,DPR=1,HS=[];
 function resize(){DPR=Math.min(2,window.devicePixelRatio||1);W=cv.clientWidth;H=cv.clientHeight;cv.width=W*DPR;cv.height=H*DPR;layout();draw()}
 window.addEventListener('resize',resize);
@@ -98,7 +98,7 @@ function draw(){c.setTransform(DPR,0,0,DPR,0,0);const L=LEVELS[lv];
  txt('飛行 App',a.x+12,a.y-0+14,10,'#9fd8cf','left',700);
  const cell=(i,label,val,bad)=>{const x=a.x+q*i+q/2;txt(label,x,a.y+30,11,'#9fd8cf','center',700);txt(val,x,a.y+52,15,bad?'#ff6b62':'#7FF3E3','center',900)};
  cell(0,'遙控器電量',has('rc')?'12%':'86%',has('rc'));cell(1,'GPS 衛星',has('gps')?'5 顆 定位中':'18 顆 ✓',has('gps'));cell(2,'指南針',has('compass')?'⚠ 異常':'正常 ✓',has('compass'));
- if(state==='play'||state==='done'){const left=L.iss.length-found.length;const msg=L.iss.length===0?'🔍 這台有沒有問題？自己判斷':(left>0?'🔍 還有 '+left+' 個問題':'✅ 全部找到了！按檢查完畢');rr(W/2-120,a.y+a.h+4,240,26,13);c.fillStyle='rgba(4,16,31,.85)';c.fill();txt(msg,W/2,a.y+a.h+22,14,left>0||L.iss.length===0?'#F2CF7E':'#7FF3E3','center',900)}
+ if(state==='play'||state==='done'){const left=L.iss.length-found.length;const msg=L.iss.length===0?'🔍 這台有沒有問題？自己判斷':(left>0?'🔍 還有 '+left+' 個問題':'✅ 全部找到了！按檢查完畢');const bump=Math.max(0,1-(performance.now()-cntT)/400);c.save();c.translate(W/2,a.y+a.h+21);c.scale(1+bump*.25,1+bump*.25);rr(-140,-16,280,32,16);c.fillStyle=bump>0?'rgba(46,196,182,.9)':'rgba(4,16,31,.9)';c.fill();c.strokeStyle='#F2CF7E';c.lineWidth=2;c.stroke();c.restore();txt(msg,W/2,a.y+a.h+27,17,left>0||L.iss.length===0?'#F2CF7E':'#7FF3E3','center',900)}
  else txt(L.tip,W/2,a.y+a.h+18,13,'#fff','center',800);
  // 地面與起飛區
  c.fillStyle='#2f6b3f';c.fillRect(0,G.gnd,W,H-G.gnd);c.strokeStyle='#2EC4B6';c.lineWidth=2;c.beginPath();c.moveTo(0,G.gnd);c.lineTo(W,G.gnd);c.stroke();
@@ -124,20 +124,22 @@ function draw(){c.setTransform(DPR,0,0,DPR,0,0);const L=LEVELS[lv];
  // 提示區
  if(hintZ&&performance.now()-hintT<2600){const k=.5+.5*Math.sin((performance.now()-hintT)/120);c.strokeStyle='rgba(242,207,126,'+(.4+.6*k)+')';c.lineWidth=4;c.setLineDash([10,6]);rr(hintZ.x,hintZ.y,hintZ.w,hintZ.h,16);c.stroke();c.setLineDash([]);txt(hintZ.t,W/2,hintZ.ty,15,'#F2CF7E','center',900)}
  // 標記
- marks.forEach(m=>{if(m.ok){c.strokeStyle='#7FF3E3';c.lineWidth=3;c.beginPath();c.arc(m.x,m.y,m.r,0,7);c.stroke();txt('✓',m.x+m.r*.7,m.y-m.r*.7,18,'#7FF3E3','center',900)}
+ marks.forEach(m=>{const age=performance.now()-(m.t||0);if(m.ok&&age<900){const k=age/900;c.strokeStyle='rgba(127,243,227,'+(1-k)+')';c.lineWidth=6*(1-k)+1;c.beginPath();c.arc(m.x,m.y,m.r*(1+k*.8),0,7);c.stroke();txt('找到了！',m.x,m.y+7-k*18,20,'#7FF3E3','center',900)}
+  if(m.ok){c.strokeStyle='#7FF3E3';c.lineWidth=3;c.beginPath();c.arc(m.x,m.y,m.r,0,7);c.stroke();txt('✓',m.x+m.r*.7,m.y-m.r*.7,18,'#7FF3E3','center',900)}
   else if(m.miss){c.strokeStyle='#ff6b62';c.setLineDash([6,5]);c.lineWidth=3;c.beginPath();c.arc(m.x,m.y,m.r,0,7);c.stroke();c.setLineDash([]);txt('✗',m.x+m.r*.7,m.y-m.r*.7,18,'#ff6b62','center',900)}
-  else{const k=Math.max(0,1-(performance.now()-m.t)/900);if(k>0){c.globalAlpha=k;txt('這裡正常',m.x,m.y,13,'#F2CF7E');c.globalAlpha=1}}});
+  else{const k=Math.max(0,1-(performance.now()-m.t)/1300);if(k>0){c.globalAlpha=Math.min(1,k*1.5);const sh=Math.sin(age/25)*6*k;c.strokeStyle='#ff3b30';c.lineWidth=7;c.lineCap='round';c.beginPath();c.moveTo(m.tx-18+sh,m.ty-18);c.lineTo(m.tx+18+sh,m.ty+18);c.moveTo(m.tx+18+sh,m.ty-18);c.lineTo(m.tx-18+sh,m.ty+18);c.stroke();txt('這裡正常 −10 分',m.tx,m.ty-30-(1-k)*20,17,'#ff6b62','center',900);c.globalAlpha=1}}});
+ const fa=Math.max(0,1-(performance.now()-flashT)/500);if(fa>0){c.strokeStyle=flashOk?'rgba(127,243,227,'+fa+')':'rgba(255,59,48,'+fa+')';c.lineWidth=14;c.strokeRect(0,0,W,H)}
  // 計時條
  if(state==='play'){const left=Math.max(0,TIME-(performance.now()-tStart)/1000);const w=(W-20)*left/TIME;rr(10,H-14,W-20,8,4);c.fillStyle='rgba(4,16,31,.7)';c.fill();rr(10,H-14,Math.max(8,w),8,4);c.fillStyle=left<8?'#ff6b62':'#F2CF7E';c.fill();
   txt('⏱ '+Math.ceil(left)+' 秒',W-14,G.gnd-8,14,left<8?'#ff6b62':'#fff','right',900);
   if(left<=0){finish(true);return}}
- if(state==='play'||marks.some(m=>!m.ok&&!m.miss)||(hintZ&&performance.now()-hintT<2600))anim=requestAnimationFrame(draw)}
+ if(state==='play'||marks.some(m=>!m.ok&&!m.miss)||performance.now()-flashT<500||(hintZ&&performance.now()-hintT<2600))anim=requestAnimationFrame(draw)}
 function labelPos(h){return {lx:Math.min(W-70,Math.max(70,h.x)),ly:h.y+h.r+14>G.gnd-20?h.y-h.r-6:h.y+h.r+14}}
 cv.addEventListener('pointerdown',e=>{if(state!=='play')return;const b=cv.getBoundingClientRect(),x=e.clientX-b.left,y=e.clientY-b.top;
  const h=HS.find(h=>Math.hypot(h.x-x,h.y-y)<=h.r);if(!h){return}
  const id=h.id==='crack0'?'crack0':h.id;
- if(has(id)&&!found.includes(id)){found.push(id);marks.push(Object.assign({id,x:h.x,y:h.y,r:h.r,ok:1},labelPos(h)));if(navigator.vibrate)try{navigator.vibrate(30)}catch(e){}}
- else if(!has(id)){if(!marks.some(m=>!m.ok&&!m.miss&&m.hid===h.id&&performance.now()-m.t<900)){wrong++;marks.push({hid:h.id,x:h.x,y:h.y,t:performance.now()})}}
+ if(has(id)&&!found.includes(id)){found.push(id);marks.push(Object.assign({id,x:h.x,y:h.y,r:h.r,ok:1,t:performance.now()},labelPos(h)));flashT=cntT=performance.now();flashOk=1;if(navigator.vibrate)try{navigator.vibrate(40)}catch(e){}}
+ else if(!has(id)){if(!marks.some(m=>!m.ok&&!m.miss&&m.hid===h.id&&performance.now()-m.t<1300)){wrong++;marks.push({hid:h.id,x:h.x,y:h.y,tx:x,ty:y,t:performance.now()});flashT=performance.now();flashOk=0;if(navigator.vibrate)try{navigator.vibrate([60,60,60])}catch(e){}}}
  cancelAnimationFrame(anim);draw()});
 function setPanel(){panel.innerHTML='<div class="q">點出有問題的地方，找完按「檢查完畢」</div><div class="two"><button class="btn dk" id="hint">💡 提示（剩 2 次）</button><button class="btn alt" id="done">✅ 檢查完畢</button></div><div class="tip">點錯、用提示各扣 10 分。各機型檢查項目不同，以說明書為準。</div>';
  document.getElementById('done').onclick=()=>finish(false);document.getElementById('hint').onclick=useHint}
