@@ -64,6 +64,7 @@ const LEVELS=[
  {iss:[],tip:'第 4 關：仔細看，有幾個問題？'},
  {iss:['bulge','compass','kid','rc'],tip:'最後一關：問題最多，30 秒內找完'},
 ];
+let hints=0,hintZ=null,hintT=0;
 let lv=0,total=0,state='idle',found=[],wrong=0,marks=[],tStart=0,anim=null,W=0,H=0,DPR=1,HS=[];
 function resize(){DPR=Math.min(2,window.devicePixelRatio||1);W=cv.clientWidth;H=cv.clientHeight;cv.width=W*DPR;cv.height=H*DPR;layout();draw()}
 window.addEventListener('resize',resize);
@@ -97,7 +98,8 @@ function draw(){c.setTransform(DPR,0,0,DPR,0,0);const L=LEVELS[lv];
  txt('飛行 App',a.x+12,a.y-0+14,10,'#9fd8cf','left',700);
  const cell=(i,label,val,bad)=>{const x=a.x+q*i+q/2;txt(label,x,a.y+30,11,'#9fd8cf','center',700);txt(val,x,a.y+52,15,bad?'#ff6b62':'#7FF3E3','center',900)};
  cell(0,'遙控器電量',has('rc')?'12%':'86%',has('rc'));cell(1,'GPS 衛星',has('gps')?'5 顆 定位中':'18 顆 ✓',has('gps'));cell(2,'指南針',has('compass')?'⚠ 異常':'正常 ✓',has('compass'));
- txt(L.tip,W/2,a.y+a.h+18,13,'#fff','center',800);
+ if(state==='play'||state==='done'){const left=L.iss.length-found.length;const msg=L.iss.length===0?'🔍 這台有沒有問題？自己判斷':(left>0?'🔍 還有 '+left+' 個問題':'✅ 全部找到了！按檢查完畢');rr(W/2-120,a.y+a.h+4,240,26,13);c.fillStyle='rgba(4,16,31,.85)';c.fill();txt(msg,W/2,a.y+a.h+22,14,left>0||L.iss.length===0?'#F2CF7E':'#7FF3E3','center',900)}
+ else txt(L.tip,W/2,a.y+a.h+18,13,'#fff','center',800);
  // 地面與起飛區
  c.fillStyle='#2f6b3f';c.fillRect(0,G.gnd,W,H-G.gnd);c.strokeStyle='#2EC4B6';c.lineWidth=2;c.beginPath();c.moveTo(0,G.gnd);c.lineTo(W,G.gnd);c.stroke();
  c.fillStyle='rgba(242,207,126,.25)';c.beginPath();c.ellipse(G.pad[0],G.pad[1],44,16,0,0,7);c.fill();c.strokeStyle='#F2CF7E';c.lineWidth=2;c.stroke();txt('H 起飛區',G.pad[0],G.pad[1]+5,12,'#F2CF7E');
@@ -119,6 +121,8 @@ function draw(){c.setTransform(DPR,0,0,DPR,0,0);const L=LEVELS[lv];
  else{c.fillStyle='#f4f7fa';c.fill();c.font='900 '+Math.max(9,s*.075)+'px sans-serif';c.textAlign='center';c.fillStyle='#0b1a33';c.fillText('註冊號碼 ●●●●',lx,ly+s*.09)}
  // 機頭燈
  c.fillStyle='#7FF3E3';c.beginPath();c.arc(cx,cy-s*.42,4,0,7);c.fill();
+ // 提示區
+ if(hintZ&&performance.now()-hintT<2600){const k=.5+.5*Math.sin((performance.now()-hintT)/120);c.strokeStyle='rgba(242,207,126,'+(.4+.6*k)+')';c.lineWidth=4;c.setLineDash([10,6]);rr(hintZ.x,hintZ.y,hintZ.w,hintZ.h,16);c.stroke();c.setLineDash([]);txt(hintZ.t,W/2,hintZ.ty,15,'#F2CF7E','center',900)}
  // 標記
  marks.forEach(m=>{if(m.ok){c.strokeStyle='#7FF3E3';c.lineWidth=3;c.beginPath();c.arc(m.x,m.y,m.r,0,7);c.stroke();txt('✓',m.x+m.r*.7,m.y-m.r*.7,18,'#7FF3E3','center',900)}
   else if(m.miss){c.strokeStyle='#ff6b62';c.setLineDash([6,5]);c.lineWidth=3;c.beginPath();c.arc(m.x,m.y,m.r,0,7);c.stroke();c.setLineDash([]);txt('✗',m.x+m.r*.7,m.y-m.r*.7,18,'#ff6b62','center',900)}
@@ -127,7 +131,7 @@ function draw(){c.setTransform(DPR,0,0,DPR,0,0);const L=LEVELS[lv];
  if(state==='play'){const left=Math.max(0,TIME-(performance.now()-tStart)/1000);const w=(W-20)*left/TIME;rr(10,H-14,W-20,8,4);c.fillStyle='rgba(4,16,31,.7)';c.fill();rr(10,H-14,Math.max(8,w),8,4);c.fillStyle=left<8?'#ff6b62':'#F2CF7E';c.fill();
   txt('⏱ '+Math.ceil(left)+' 秒',W-14,G.gnd-8,14,left<8?'#ff6b62':'#fff','right',900);
   if(left<=0){finish(true);return}}
- if(state==='play'||marks.some(m=>!m.ok&&!m.miss))anim=requestAnimationFrame(draw)}
+ if(state==='play'||marks.some(m=>!m.ok&&!m.miss)||(hintZ&&performance.now()-hintT<2600))anim=requestAnimationFrame(draw)}
 function labelPos(h){return {lx:Math.min(W-70,Math.max(70,h.x)),ly:h.y+h.r+14>G.gnd-20?h.y-h.r-6:h.y+h.r+14}}
 cv.addEventListener('pointerdown',e=>{if(state!=='play')return;const b=cv.getBoundingClientRect(),x=e.clientX-b.left,y=e.clientY-b.top;
  const h=HS.find(h=>Math.hypot(h.x-x,h.y-y)<=h.r);if(!h){return}
@@ -135,17 +139,24 @@ cv.addEventListener('pointerdown',e=>{if(state!=='play')return;const b=cv.getBou
  if(has(id)&&!found.includes(id)){found.push(id);marks.push(Object.assign({id,x:h.x,y:h.y,r:h.r,ok:1},labelPos(h)));if(navigator.vibrate)try{navigator.vibrate(30)}catch(e){}}
  else if(!has(id)){if(!marks.some(m=>!m.ok&&!m.miss&&m.hid===h.id&&performance.now()-m.t<900)){wrong++;marks.push({hid:h.id,x:h.x,y:h.y,t:performance.now()})}}
  cancelAnimationFrame(anim);draw()});
-function setPanel(){panel.innerHTML='<div class="q">點出有問題的地方，找完按「檢查完畢」</div><button class="btn alt" id="done">✅ 檢查完畢</button><div class="tip">點錯會扣分。各機型檢查項目不同，以說明書為準。</div>';
- document.getElementById('done').onclick=()=>finish(false)}
+function setPanel(){panel.innerHTML='<div class="q">點出有問題的地方，找完按「檢查完畢」</div><div class="two"><button class="btn dk" id="hint">💡 提示（剩 2 次）</button><button class="btn alt" id="done">✅ 檢查完畢</button></div><div class="tip">點錯、用提示各扣 10 分。各機型檢查項目不同，以說明書為準。</div>';
+ document.getElementById('done').onclick=()=>finish(false);document.getElementById('hint').onclick=useHint}
+function zoneOf(id){const a=G.app,{cx,cy,s}=G;
+ if(['rc','gps','compass'].includes(id))return {x:a.x-4,y:a.y-4,w:a.w+8,h:a.h+8,t:'💡 看看上面的 App 狀態列',ty:a.y+a.h+52};
+ if(id==='kid')return {x:6,y:G.gnd-60,w:W-12,h:H-G.gnd+44,t:'💡 看看起飛區周圍',ty:G.gnd-70};
+ const r=s*.78+G.pr+8;return {x:cx-r,y:cy-r,w:2*r,h:2*r,t:id==='crack'?'💡 仔細看每一片槳葉':'💡 仔細看無人機本體',ty:cy-r-8}}
+function useHint(){if(state!=='play'||hints>=2)return;const L=LEVELS[lv];const left=L.iss.filter(id=>!found.includes(id));if(L.iss.length&&!left.length)return;
+ hints++;hintZ=left.length?zoneOf(left[0]):{x:6,y:6,w:W-12,h:H-24,t:'💡 都看過一遍了嗎？沒問題就按檢查完畢',ty:G.cy};hintT=performance.now();
+ const b=document.getElementById('hint');b.textContent='💡 提示（剩 '+(2-hints)+' 次）';if(hints>=2)b.disabled=true;cancelAnimationFrame(anim);draw()}
 function finish(timeout){if(state!=='play')return;state='done';const L=LEVELS[lv],tot=L.iss.length;
  L.iss.filter(id=>!found.includes(id)).forEach(id=>{const h=HS.find(h=>h.id===id);marks.push(Object.assign({id,x:h.x,y:h.y,r:h.r,miss:1},labelPos(h)))});
  marks=marks.filter(m=>m.ok||m.miss);cancelAnimationFrame(anim);draw();
- let s;if(tot===0)s=timeout?70:100;else s=Math.round(100*found.length/tot);s=Math.max(0,s-10*wrong);
+ let s;if(tot===0)s=timeout?70:100;else s=Math.round(100*found.length/tot);s=Math.max(0,s-10*wrong-10*hints);
  const miss=L.iss.filter(id=>!found.includes(id));
  let t,cls;if(tot===0){t=timeout?'想太久了':(wrong?'其實都正常':'判斷正確，可以起飛！');cls=wrong||timeout?'warn':'ok'}
  else if(!miss.length){t=wrong?'全找到了，但點錯幾個':'全部找到！';cls=wrong?'warn':'ok'}else{t=timeout?'時間到！':'還有漏掉的';cls=found.length?'warn':'bad'}
  const li=L.iss.map(id=>'<li class="'+(found.includes(id)?'':'miss')+'">'+(found.includes(id)?'✅ ':'❌ 漏了：')+'<b>'+ISSUE[id].n+'</b><br>'+ISSUE[id].d+'</li>').join('');
- setTimeout(()=>showResult({s,t,cls,d:(tot===0?'<p>這台無人機槳葉完整、電池正常、有註冊號碼，App 也都正常，起飛區沒有人。<br><b>都檢查過、沒問題，就可以安心起飛。</b></p>':'<ul>'+li+'</ul>')+(wrong?'<p class="warn">點錯 '+wrong+' 次，扣 '+(wrong*10)+' 分</p>':'')}),700)}
+ setTimeout(()=>showResult({s,t,cls,d:(tot===0?'<p>這台無人機槳葉完整、電池正常、有註冊號碼，App 也都正常，起飛區沒有人。<br><b>都檢查過、沒問題，就可以安心起飛。</b></p>':'<ul>'+li+'</ul>')+(wrong?'<p class="warn">點錯 '+wrong+' 次，扣 '+(wrong*10)+' 分</p>':'')+(hints?'<p class="warn">用了提示 '+hints+' 次，扣 '+(hints*10)+' 分</p>':'')}),700)}
 function showResult(r){total+=r.s;document.getElementById('sc').textContent=total;const last=lv>=LEVELS.length-1;
  card.innerHTML='<h2 class="'+r.cls+'">'+r.t+'</h2><div class="big">+'+r.s+'</div>'+r.d+'<button class="btn alt" id="nx">'+(last?'看總成績':'下一關 ▶')+'</button><button class="btn dk" id="rt" style="font-size:16px;padding:12px">這關重來一次</button>';
  ov.classList.add('on');
@@ -157,9 +168,9 @@ function final(){const g=total>=450?'檢查達人':total>=350?'合格飛手':tot
  ov.classList.add('on');
  document.getElementById('sh').onclick=async()=>{try{if(navigator.share){await navigator.share({title:'起飛前 30 秒檢查',text:share});return}}catch(e){}try{await navigator.clipboard.writeText(share);document.getElementById('sh').textContent='✅ 已複製，貼給朋友吧'}catch(e){prompt('複製這段分享給朋友：',share)}};
  document.getElementById('ag').onclick=()=>{ov.classList.remove('on');lv=0;total=0;document.getElementById('sc').textContent=0;intro()}}
-function intro(){state='idle';found=[];wrong=0;marks=[];document.getElementById('lv').textContent=lv+1;setPanel();document.getElementById('done').disabled=true;cancelAnimationFrame(anim);layout();draw();
- const L=LEVELS[lv];card.innerHTML='<h2 class="warn">第 '+(lv+1)+' 關</h2><p>'+L.tip.replace(/^第 \d 關：|^最後一關：/,'')+'</p><p>你有 <b>30 秒</b>，點出畫面上有問題的地方。<br>App 狀態列、無人機、起飛區都要看。</p><button class="btn alt" id="st">開始檢查 ⏱</button>';
- ov.classList.add('on');document.getElementById('st').onclick=()=>{ov.classList.remove('on');document.getElementById('done').disabled=false;state='play';tStart=performance.now();anim=requestAnimationFrame(draw)}}
+function intro(){state='idle';found=[];wrong=0;marks=[];hints=0;hintZ=null;document.getElementById('lv').textContent=lv+1;setPanel();document.getElementById('done').disabled=true;document.getElementById('hint').disabled=true;cancelAnimationFrame(anim);layout();draw();
+ const L=LEVELS[lv];card.innerHTML='<h2 class="warn">第 '+(lv+1)+' 關</h2><p>'+L.tip.replace(/^第 \d 關：|^最後一關：/,'')+'</p><p>你有 <b>30 秒</b>，點出畫面上有問題的地方。<br>App 狀態列、無人機、起飛區都要看。<br>畫面上方會顯示還剩幾個問題；卡住可以按「💡 提示」。</p><button class="btn alt" id="st">開始檢查 ⏱</button>';
+ ov.classList.add('on');document.getElementById('st').onclick=()=>{ov.classList.remove('on');document.getElementById('done').disabled=false;document.getElementById('hint').disabled=false;state='play';tStart=performance.now();anim=requestAnimationFrame(draw)}}
 setPanel();resize();intro();
 </script>
 </body>
