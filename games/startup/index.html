@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>開機順序挑戰｜鋒哥飛行</title>
+<meta property="og:title" content="開機順序挑戰｜順序錯了，無人機可能直接失控">
+<meta property="og:description" content="5 關排順序小遊戲：先開遙控器還是先上電？衛星幾顆才能飛？降落後先關哪個？">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#04101f;color:#e8f6f8;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;overflow:hidden;-webkit-tap-highlight-color:transparent}
+#app{display:flex;flex-direction:column;height:100%;max-width:520px;margin:0 auto}
+header{position:relative;z-index:6;display:flex;align-items:center;padding:10px 14px;background:#06182a;border-bottom:1px solid rgba(127,243,227,.25)}
+.hm{flex:none;width:34px;height:34px;border-radius:10px;background:#1b3a4e;border:1px solid rgba(127,243,227,.35);display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:18px;margin-right:8px}
+.brand{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:900;font-size:15px;color:#F2CF7E}
+.lvl{font-size:14px;color:#cfe8ee;white-space:nowrap}.lvl b{color:#7FF3E3}
+#scene{position:relative;flex:none;height:34vh;min-height:200px;overflow:hidden;border-bottom:1px solid rgba(127,243,227,.2)}
+#scene svg{width:100%;height:100%;display:block}
+#app.flash #scene{animation:fl .5s}
+@keyframes fl{0%,100%{box-shadow:inset 0 0 0 0 rgba(255,107,98,0)}40%{box-shadow:inset 0 0 0 6px rgba(255,107,98,.9)}}
+#drone{transition:transform .9s cubic-bezier(.3,.7,.3,1)}
+#drone.wob{animation:wob .9s}
+@keyframes wob{0%,100%{transform:translate(0,0) rotate(0)}20%{transform:translate(-14px,-8px) rotate(-14deg)}45%{transform:translate(16px,-14px) rotate(16deg)}70%{transform:translate(-10px,-4px) rotate(-9deg)}}
+.prop{transform-box:fill-box;transform-origin:center}
+.spin .prop{animation:sp .15s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#hud{position:absolute;left:10px;top:10px;padding:6px 10px;border-radius:10px;background:rgba(4,16,31,.78);border:1px solid rgba(127,243,227,.4);font-size:14px;font-weight:800;color:#fff;text-shadow:0 1px 2px #000}
+#hud .r{color:#ff6b62}#hud .y{color:#F2CF7E}#hud .g{color:#7FF3E3}
+.main{flex:1;display:flex;flex-direction:column;padding:10px 14px 12px;background:#06182a;overflow:auto}
+.q{font-size:16px;font-weight:900;text-align:center;color:#F2CF7E;line-height:1.45}
+.sub{font-size:12.5px;text-align:center;color:rgba(190,235,255,.7);margin-top:3px}
+.slots{display:flex;gap:6px;margin:10px 0 8px}
+.slot{flex:1;min-height:46px;border-radius:12px;border:1.5px dashed rgba(127,243,227,.35);display:flex;align-items:center;justify-content:center;text-align:center;font-size:12.5px;font-weight:800;line-height:1.3;padding:4px;color:rgba(190,235,255,.45)}
+.slot.f{border-style:solid;border-color:#2EC4B6;background:rgba(46,196,182,.16);color:#7FF3E3}
+.slot.f.pop{animation:pop .45s}
+@keyframes pop{0%{transform:scale(.6)}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.opt{border:1px solid rgba(127,243,227,.35);border-radius:14px;padding:13px 8px;font-size:16px;font-weight:900;font-family:inherit;color:#e8f6f8;background:linear-gradient(180deg,#123449,#0b2335);min-height:56px;line-height:1.3}
+.opt:active{transform:scale(.97)}
+.opt.used{visibility:hidden}
+.opt.no{animation:sh .45s;border-color:#ff6b62;background:linear-gradient(180deg,#4a1716,#2a0d0c)}
+@keyframes sh{0%,100%{transform:translateX(0)}20%{transform:translateX(-9px)}40%{transform:translateX(9px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+.fb{min-height:44px;margin-top:9px;padding:8px 10px;border-radius:12px;font-size:14px;line-height:1.5;text-align:center;display:none}
+.fb.on{display:block}
+.fb.bad{background:rgba(255,107,98,.12);border:1px solid rgba(255,107,98,.55);color:#ffd2cf}
+.fb.ok{background:rgba(46,196,182,.12);border:1px solid rgba(127,243,227,.55);color:#c9fff7}
+.btn{margin-top:10px;width:100%;border:0;border-radius:16px;padding:15px;font-size:19px;font-weight:900;font-family:inherit;background:linear-gradient(180deg,#e5463d,#b8241c);color:#fff;box-shadow:0 6px 20px rgba(229,70,61,.35)}
+.btn.alt{background:linear-gradient(180deg,#2EC4B6,#14857b);box-shadow:0 6px 20px rgba(46,196,182,.3)}
+.btn.dk{background:#1b3a4e;box-shadow:none;font-size:16px;padding:12px}
+.btn.lk{display:block;text-decoration:none;text-align:center;background:#1b3a4e;box-shadow:none;font-size:16px;padding:12px;border:1px solid rgba(242,207,126,.6);color:#F2CF7E}
+.two{display:flex;gap:10px}.two .btn{flex:1;font-size:17px;padding:14px 6px}
+#ov{position:fixed;left:0;right:0;bottom:0;top:55px;background:rgba(2,8,16,.82);display:none;align-items:center;justify-content:center;padding:16px 20px;z-index:5}
+#ov.on{display:flex}
+.card{width:100%;max-width:420px;max-height:100%;overflow:auto;background:linear-gradient(180deg,#0e2a3d,#06182a);border:1px solid rgba(127,243,227,.35);border-radius:22px;padding:20px 18px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.card h2{font-size:25px;font-weight:900;margin-bottom:4px}
+.card .big{font-size:50px;font-weight:900;color:#F2CF7E;line-height:1.1}
+.card p{font-size:15px;line-height:1.6;color:#cfe8ee;margin:8px 0}
+.card .note{font-size:12px;color:rgba(190,235,255,.55)}
+.card .seq{display:flex;flex-wrap:wrap;justify-content:center;gap:4px;margin:8px 0;font-size:13.5px;font-weight:800;color:#7FF3E3}
+.card .seq span{padding:4px 8px;border-radius:8px;background:rgba(46,196,182,.14);border:1px solid rgba(127,243,227,.35)}
+.ok{color:#7FF3E3}.bad{color:#ff6b62}.warn{color:#F2CF7E}
+</style>
+</head>
+<body>
+<div id="app">
+ <header><a class="hm" href="../" aria-label="回遊戲入口">🏠</a><div class="brand">鋒哥飛行｜開機順序挑戰</div><div class="lvl">第 <b id="lv">1</b> / 5 關　總分 <b id="sc">0</b></div></header>
+ <div id="scene">
+  <svg viewBox="0 0 390 260" preserveAspectRatio="xMidYMid slice">
+   <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5fb4ee"/><stop offset="1" stop-color="#cdebff"/></linearGradient>
+    <linearGradient id="gr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fb35a"/><stop offset="1" stop-color="#3f7d3a"/></linearGradient>
+   </defs>
+   <rect width="390" height="260" fill="url(#sky)"/>
+   <circle cx="340" cy="38" r="20" fill="#fff3b0"/><circle cx="340" cy="38" r="30" fill="#fff3b0" opacity=".25"/>
+   <g fill="#fff" opacity=".9"><ellipse cx="90" cy="46" rx="30" ry="10"/><ellipse cx="112" cy="40" rx="20" ry="10"/><ellipse cx="230" cy="62" rx="26" ry="8"/></g>
+   <rect y="180" width="390" height="80" fill="url(#gr)"/>
+   <ellipse cx="195" cy="226" rx="56" ry="15" fill="#c94b4b"/><ellipse cx="195" cy="226" rx="44" ry="11" fill="#e86a6a"/>
+   <text x="195" y="231" text-anchor="middle" font-size="15" font-weight="900" fill="#fff">H</text>
+   <g id="kid" style="display:none"><circle cx="268" cy="186" r="8" fill="#f1c9a5"/><rect x="261" y="194" width="14" height="22" rx="5" fill="#f2a33a"/><rect x="262" y="214" width="5" height="12" fill="#335"/><rect x="269" y="214" width="5" height="12" fill="#335"/></g>
+   <g id="rc" transform="translate(40,182)">
+    <rect x="0" y="0" width="66" height="40" rx="9" fill="#1c2733" stroke="#000" stroke-width="1.5"/>
+    <rect x="13" y="5" width="40" height="22" rx="3" id="rcs" fill="#0b0f14"/>
+    <circle cx="8" cy="33" r="4" fill="#556"/><circle cx="58" cy="33" r="4" fill="#556"/>
+    <circle cx="33" cy="35" r="2.6" id="rcl" fill="#333"/>
+   </g>
+   <g id="drone" transform="translate(0,0)">
+    <g transform="translate(195,206)">
+     <g id="arms"><line x1="-36" y1="-6" x2="36" y2="-6" stroke="#2b2f36" stroke-width="5" stroke-linecap="round"/></g>
+     <rect x="-20" y="-16" width="40" height="18" rx="6" fill="#2a6fdb" stroke="#123" stroke-width="1.5"/>
+     <rect x="-12" y="2" width="24" height="7" rx="2" fill="#333" id="bat" opacity=".25"/>
+     <line x1="-14" y1="2" x2="-20" y2="16" stroke="#222" stroke-width="3"/><line x1="14" y1="2" x2="20" y2="16" stroke="#222" stroke-width="3"/>
+     <g id="props"><ellipse class="prop" cx="-36" cy="-10" rx="16" ry="2.6" fill="#111" opacity=".75"/><ellipse class="prop" cx="36" cy="-10" rx="16" ry="2.6" fill="#111" opacity=".75"/></g>
+     <circle cx="-36" cy="-4" r="3" id="l1" fill="#333"/><circle cx="36" cy="-4" r="3" id="l2" fill="#333"/>
+    </g>
+   </g>
+  </svg>
+  <div id="hud"></div>
+ </div>
+ <div class="main" id="main"></div>
+</div>
+<div id="ov"><div class="card" id="card"></div></div>
+<script>
+const $=id=>document.getElementById(id);
+const app=$('app'),main=$('main'),ov=$('ov'),card=$('card');
+// 關卡：type seq = 依序點；type wait = 等時機
+const LEVELS=[
+ {title:'開機順序',q:'考照機第一次開機，照順序點出 4 個步驟',sub:'順序錯了，無人機可能直接失控',type:'seq',
+  steps:['開遙控器','上電','等連線','解鎖起飛'],
+  why:{'上電':'遙控器還沒開，飛機上電後收不到遙控訊號，可能亂動或觸發失控保護。<b>遙控器一定要比飛機先開。</b>',
+   '等連線':'還沒開遙控器、也還沒上電，沒有東西可以連線。',
+   '解鎖起飛':'太急了！還沒開遙控器、上電、連線，這樣飛一定出事。',
+   '開遙控器':'',def:'順序不對，再想想。'},
+  learn:'遙控器一定要比飛機先開。'},
+ {title:'上電',q:'幫無人機上電，照順序點出 4 個動作',sub:'上電前，機身要先準備好',type:'seq',
+  steps:['展開機臂','確認機臂鎖緊','裝電池、插接頭','看機臂燈亮'],
+  why:{'確認機臂鎖緊':'機臂都還沒展開，要確認什麼？先展開。',
+   '裝電池、插接頭':'機臂還沒展開、鎖緊就上電，飛起來機臂可能折起來。',
+   '看機臂燈亮':'還沒插上電源接頭，燈不會亮。',def:'順序不對，再想想。'},
+  learn:'機臂展開、鎖緊，再裝電池插接頭，燈亮才算上電完成。'},
+ {title:'等連線',q:'看 App 左上角，覺得可以飛了就按「可以起飛」',sub:'不要急，看清楚衛星數和定位',type:'wait',
+  learn:'App 從「未連接」變成飛行模式，衛星數出來、顯示 3D，才算定位完成。'},
+ {title:'起飛',q:'準備起飛，照順序點出 4 個動作',sub:'先看看起飛區四周',type:'seq',kid:true,
+  steps:['請旁邊的人離開','兩桿內八解鎖','先低空懸停','飛穩再往前飛'],
+  why:{'兩桿內八解鎖':'起飛區旁邊有小朋友！要先確定周圍淨空再解鎖。',
+   '先低空懸停':'還沒解鎖，飛機不會起飛。',
+   '飛穩再往前飛':'一起飛就往前衝很危險，先低空懸停確認穩定。',def:'順序不對，再想想。'},
+  learn:'周圍淨空 → 解鎖 → 低空懸停 → 飛穩再往前飛。'},
+ {title:'降落關機',q:'飛完降落了，照順序點出關機的 3 個步驟',sub:'降落後，順序剛好反過來',type:'seq',land:true,
+  steps:['等螺旋槳停','斷飛機的電','關遙控器'],
+  why:{'斷飛機的電':'螺旋槳還在轉就去拔電池，手很容易被打到。先等螺旋槳完全停。',
+   '關遙控器':'飛機還有電就先關遙控器，飛機會失去遙控訊號，可能誤觸返航或亂動。<b>先斷飛機的電，再關遙控器。</b>',def:'順序不對，再想想。'},
+  learn:'降落後反過來：先斷飛機的電，再關遙控器。'}
+];
+let lv=0,total=0,step=0,wrong=0,early=0,timer=null,lvScore=0;
+function hud(h){$('hud').innerHTML=h}
+function setDrone(st){ // st: off / on / fly / hover / landed
+ const on=st!=='off';$('l1').setAttribute('fill',on?'#3dff8a':'#333');$('l2').setAttribute('fill',on?'#3dff8a':'#333');
+ $('bat').setAttribute('opacity',on?'1':'.25');
+ const g=$('drone');g.classList.toggle('spin',st==='fly'||st==='hover'||st==='spin');
+ g.style.transform=st==='fly'?'translate(60px,-120px)':st==='hover'?'translate(0,-55px)':'translate(0,0)'}
+function setRC(on){$('rcs').setAttribute('fill',on?'#1e7fd0':'#0b0f14');$('rcl').setAttribute('fill',on?'#3dff8a':'#333')}
+function bad(){app.classList.remove('flash');void app.offsetWidth;app.classList.add('flash');try{navigator.vibrate&&navigator.vibrate(200)}catch(e){}}
+function wob(){const g=$('drone');g.classList.remove('wob');void g.offsetWidth;g.classList.add('wob')}
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}if(a.join()===LEVELS[lv].steps.join())return shuffle(a);return a}
+function resetScene(L){$('kid').style.display=L.kid?'':'none';$('drone').classList.remove('wob');
+ if(lv===0){setRC(false);setDrone('off');hud('<span class="r">● 遙控器關機</span>　飛機未上電')}
+ else if(lv===1){setRC(true);setDrone('off');hud('<span class="g">● 遙控器已開</span>　飛機未上電')}
+ else if(lv===3){setRC(true);setDrone('on');hud('<span class="g">衛星 19・3D</span>　定位完成')}
+ else if(lv===4){setRC(true);setDrone('spin');hud('<span class="y">已降落</span>　螺旋槳還在轉')}}
+function play(){const L=LEVELS[lv];step=0;wrong=0;early=0;$('lv').textContent=lv+1;resetScene(L);
+ if(L.type==='wait')return playWait(L);
+ const opts=shuffle(L.steps);
+ main.innerHTML='<div class="q">'+L.q+'</div><div class="sub">'+L.sub+'</div><div class="slots">'+L.steps.map((s,i)=>'<div class="slot" id="s'+i+'">'+(i+1)+'</div>').join('')+'</div><div class="opts">'+opts.map((s,i)=>'<button class="opt" data-s="'+s+'">'+s+'</button>').join('')+'</div><div class="fb" id="fb"></div>';
+ main.querySelectorAll('.opt').forEach(b=>b.onclick=()=>pick(b))}
+function pick(b){const L=LEVELS[lv],s=b.dataset.s,fb=$('fb');
+ if(s===L.steps[step]){b.classList.add('used');const sl=$('s'+step);sl.textContent=s;sl.classList.add('f','pop');fb.className='fb ok on';fb.innerHTML='✅ 對！';
+  afterStep(s);step++;if(step===L.steps.length)setTimeout(()=>finish(),900)}
+ else{wrong++;b.classList.remove('no');void b.offsetWidth;b.classList.add('no');bad();
+  if((lv===0&&s==='上電'&&step===0)||(lv===4&&s==='關遙控器'))wob();
+  fb.className='fb bad on';fb.innerHTML='❌ '+(L.why[s]||L.why.def)+'<br><span style="font-size:12px;opacity:.8">−25 分</span>'}}
+function afterStep(s){
+ if(s==='開遙控器')setRC(true),hud('<span class="g">● 遙控器已開</span>　飛機未上電');
+ if(s==='上電'||s==='看機臂燈亮')setDrone('on'),hud('<span class="g">● 遙控器已開</span>　<span class="g">飛機已上電</span>');
+ if(s==='等連線')hud('<span class="g">衛星 19・3D</span>　定位完成');
+ if(s==='請旁邊的人離開')$('kid').style.display='none';
+ if(s==='兩桿內八解鎖')setDrone('spin'),hud('<span class="y">已解鎖</span>　螺旋槳轉動中');
+ if(s==='先低空懸停')setDrone('hover'),hud('<span class="g">懸停中</span>　高度 2 m');
+ if(s==='飛穩再往前飛')setDrone('fly'),hud('<span class="g">飛行中</span>　高度 15 m');
+ if(s==='等螺旋槳停')setDrone('on'),hud('<span class="g">螺旋槳已停</span>');
+ if(s==='斷飛機的電')setDrone('off'),hud('飛機已斷電　<span class="g">● 遙控器開</span>');
+ if(s==='關遙控器')setRC(false),hud('全部關機 ✔')}
+// 第 3 關：等時機
+const WAIT=[[0,'<span class="r">未連接</span>'],[1800,'<span class="y">已連接</span>　衛星 4・無定位'],[3800,'<span class="y">已連接</span>　衛星 9・2D'],[5800,'<span class="g">已連接</span>　衛星 19・<b>3D</b>']];
+let wi=0,wStart=0;
+function playWait(L){setRC(true);setDrone('on');wi=0;
+ main.innerHTML='<div class="q">'+L.q+'</div><div class="sub">'+L.sub+'</div><div class="fb" id="fb"></div><div class="two"><button class="btn alt" id="go">可以起飛</button><button class="btn dk" id="wt" style="font-size:17px">再等等</button></div>';
+ hud(WAIT[0][1]);wStart=performance.now();clearInterval(timer);
+ timer=setInterval(()=>{const t=performance.now()-wStart;let k=0;WAIT.forEach((w,i)=>{if(t>=w[0])k=i});if(k!==wi){wi=k;hud(WAIT[k][1])}},120);
+ $('wt').onclick=()=>{const fb=$('fb');fb.className='fb ok on';fb.innerHTML=wi<3?'👍 對，還沒好，繼續等。':'已經是 3D 了，可以按「可以起飛」！'};
+ $('go').onclick=()=>{const fb=$('fb');
+  if(wi<3){early++;bad();wob();fb.className='fb bad on';fb.innerHTML='❌ '+(wi===0?'還沒連上飛機！左上角是「未連接」。':wi===1?'衛星太少、還沒定位，起飛後可能飄走，返航點也不準。':'只有 2D，高度還沒定位好，等到 <b>3D</b> 再飛。')+'<br><span style="font-size:12px;opacity:.8">−25 分</span>'}
+  else{clearInterval(timer);fb.className='fb ok on';fb.innerHTML='✅ 衛星 19 顆、3D，定位完成，可以起飛！';$('go').disabled=true;setTimeout(()=>finish(),900)}}}
+function finish(){const L=LEVELS[lv];const n=wrong+early;lvScore=Math.max(0,100-25*n);total+=lvScore;$('sc').textContent=total;
+ const t=n===0?'完美！':lvScore>=50?'好險':'順序要再練';const cls=n===0?'ok':lvScore>=50?'warn':'bad';const last=lv>=LEVELS.length-1;
+ card.innerHTML='<h2 class="'+cls+'">'+t+'</h2><div class="big">+'+lvScore+'</div>'+(n?'<p class="warn">錯 '+n+' 次，每次扣 25 分</p>':'')+(L.steps?'<div class="seq">'+L.steps.map((s,i)=>'<span>'+(i+1)+' '+s+'</span>').join('')+'</div>':'')+'<p><b>'+L.learn+'</b></p><button class="btn alt" id="nx">'+(last?'看總成績':'下一關 ▶')+'</button><button class="btn dk" id="rt">這關重來一次</button>';
+ ov.classList.add('on');
+ $('nx').onclick=()=>{ov.classList.remove('on');if(last)final();else{lv++;intro()}};
+ $('rt').onclick=()=>{total-=lvScore;$('sc').textContent=total;ov.classList.remove('on');intro()}}
+function final(){const g=total>=500?'開機零失誤':total>=400?'穩穩起飛':total>=250?'再練一下':'先回去看影片';
+ const url=location.href.split('?')[0];
+ const share='我在「開機順序挑戰」拿到 '+total+' / 500 分（'+g+'）！你知道要先開遙控器還是先上電嗎？來挑戰 👉 '+url;
+ card.innerHTML='<h2>總成績</h2><div class="big">'+total+'<span style="font-size:24px;color:#9fd8cf"> / 500</span></div><p class="warn" style="font-size:22px;font-weight:900">'+g+'</p><p>口訣：<br><b>先開遙控、再上電；等到 3D、才起飛；<br>降落反過來，先斷飛機、再關遙控。</b></p><button class="btn alt" id="sh">📤 分享給朋友挑戰</button><button class="btn dk" id="ag">再玩一次</button><a class="btn lk" href="../" style="margin-top:10px">🎮 玩其他小遊戲</a><p class="note" style="margin-top:12px">想學飛、考操作證？歡迎私訊「鋒哥飛行」<br>各機型開關機與解鎖方式不同，以說明書為準；法規以民航局最新公告為準</p>';
+ ov.classList.add('on');
+ $('sh').onclick=async()=>{try{if(navigator.share){await navigator.share({title:'開機順序挑戰',text:share});return}}catch(e){}try{await navigator.clipboard.writeText(share);$('sh').textContent='✅ 已複製，貼給朋友吧'}catch(e){prompt('複製這段分享給朋友：',share)}};
+ $('ag').onclick=()=>{ov.classList.remove('on');lv=0;total=0;$('sc').textContent=0;intro()}}
+function intro(){clearInterval(timer);const L=LEVELS[lv];main.innerHTML='';resetScene(L);$('lv').textContent=lv+1;
+ card.innerHTML='<h2 class="warn">第 '+(lv+1)+' 關｜'+L.title+'</h2><p>'+L.q+'</p><p class="note">'+(L.type==='wait'?'太早按會扣分，看清楚 App 狀態再決定。':'點錯一次扣 25 分，錯了會告訴你為什麼。')+'</p><button class="btn alt" id="st">開始 ▶</button>';
+ ov.classList.add('on');$('st').onclick=()=>{ov.classList.remove('on');play()}}
+intro();
+</script>
+</body>
+</html>
