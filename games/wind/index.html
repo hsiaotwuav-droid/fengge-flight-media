@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>抗風回家｜鋒哥飛行</title>
+<meta property="og:title" content="抗風回家｜地面沒風，你的無人機回得來嗎？">
+<meta property="og:description" content="5 關小遊戲：起飛前檢查、出發方向、頂風回程。看你能拿幾分！">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#04101f;color:#e8f6f8;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;overflow:hidden;-webkit-tap-highlight-color:transparent}
+#app{display:flex;flex-direction:column;height:100%;max-width:520px;margin:0 auto}
+header{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#06182a;border-bottom:1px solid rgba(127,243,227,.25)}
+.brand{font-weight:900;font-size:15px;color:#F2CF7E}
+.lvl{font-size:14px;color:#cfe8ee}.lvl b{color:#7FF3E3}
+#cv{flex:1;width:100%;display:block;touch-action:none}
+.panel{padding:10px 14px 14px;background:#06182a;border-top:1px solid rgba(127,243,227,.25)}
+.row{display:flex;align-items:center;gap:12px}
+.hval{min-width:92px;text-align:center;font-weight:900;font-size:28px;color:#7FF3E3}
+.hval small{font-size:14px;color:#9fd8cf;font-weight:700}
+input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:10px;border-radius:6px;background:linear-gradient(90deg,#2EC4B6 0%,#2EC4B6 var(--p,30%),#1b3a4e var(--p,30%));outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:34px;height:34px;border-radius:50%;background:#F2CF7E;border:4px solid #04101f;box-shadow:0 0 0 2px #F2CF7E,0 0 18px rgba(242,207,126,.6)}
+input[type=range]::-moz-range-thumb{width:30px;height:30px;border-radius:50%;background:#F2CF7E;border:4px solid #04101f}
+.btn{margin-top:10px;width:100%;border:0;border-radius:16px;padding:15px;font-size:19px;font-weight:900;font-family:inherit;background:linear-gradient(180deg,#e5463d,#b8241c);color:#fff;box-shadow:0 6px 20px rgba(229,70,61,.35)}
+.btn:disabled{opacity:.45}
+.btn.alt{background:linear-gradient(180deg,#2EC4B6,#14857b);box-shadow:0 6px 20px rgba(46,196,182,.3)}
+.btn.dk{background:#1b3a4e;box-shadow:none}
+.two{display:flex;gap:10px}.two .btn{flex:1;font-size:17px;padding:14px 8px}
+.q{font-size:15px;font-weight:800;text-align:center;color:#F2CF7E;margin-top:2px}
+.tip{margin-top:8px;font-size:12px;color:rgba(190,235,255,.6);text-align:center;line-height:1.5}
+#ov{position:fixed;inset:0;background:rgba(2,8,16,.82);display:none;align-items:center;justify-content:center;padding:24px;z-index:5}
+#ov.on{display:flex}
+.card{width:100%;max-width:420px;background:linear-gradient(180deg,#0e2a3d,#06182a);border:1px solid rgba(127,243,227,.35);border-radius:22px;padding:24px 20px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.card h2{font-size:28px;font-weight:900;margin-bottom:6px}
+.card .big{font-size:56px;font-weight:900;color:#F2CF7E;line-height:1.1}
+.card p{font-size:16px;line-height:1.65;color:#cfe8ee;margin:10px 0}
+.card .note{font-size:12px;color:rgba(190,235,255,.55)}
+.card .btn{margin-top:14px}
+.ok{color:#7FF3E3}.bad{color:#ff6b62}.warn{color:#F2CF7E}
+</style>
+</head>
+<body>
+<div id="app">
+ <header><div class="brand">鋒哥飛行｜抗風回家</div><div class="lvl">第 <b id="lv">1</b> / 5 關　總分 <b id="sc">0</b></div></header>
+ <canvas id="cv"></canvas>
+ <div class="panel" id="panel"></div>
+</div>
+<div id="ov"><div class="card" id="card"></div></div>
+<script>
+const cv=document.getElementById('cv'),c=cv.getContext('2d');
+const panel=document.getElementById('panel'),ov=document.getElementById('ov'),card=document.getElementById('card');
+const V=15,DRAIN=0.055; // 無人機空速 15 m/s；耗電每秒 0.055%（約每分鐘 3.3%）
+// 關卡
+const LEVELS=[
+ {type:'go',strong:1,tip:'起飛前看三個地方：樹梢、雲、飛行 App'},
+ {type:'go',strong:0,tip:'又是新的一天，再檢查一次'},
+ {type:'dir',wind:8,tip:'任務：飛出去，電量剩一半就回頭。先往哪邊飛？'},
+ {type:'alt',a:2,b:.10,B:30,D:1500,obs:[[.30,.10,35,'b'],[.55,.07,22,'r'],[.75,.09,28,'b']],lab:1,tip:'回程頂風！越高風越大，用什麼高度回家？'},
+ {type:'alt',a:2,b:.12,B:32,D:1500,obs:[[.28,.12,45,'b'],[.52,.07,28,'r'],[.74,.10,38,'b']],lab:0,tip:'最後一關：風速看不到數字了，看箭頭判斷'},
+];
+let lv=0,total=0,state='idle',t0=0,anim=null,res=null,W=0,H=0,DPR=1,choice=null;
+function resize(){DPR=Math.min(2,window.devicePixelRatio||1);W=cv.clientWidth;H=cv.clientHeight;cv.width=W*DPR;cv.height=H*DPR;draw(performance.now())}
+window.addEventListener('resize',resize);
+function gy(){return H*0.88}
+function yOf(m){return gy()-(m/130)*(H*0.78)}
+function xOf(r){const L=W*0.12,R=W*0.9;return L+(R-L)*r}
+function glow(x,y,r,col){const g=c.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,col);g.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=g;c.fillRect(x-r,y-r,r*2,r*2)}
+function rr(x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
+function txt(s,x,y,sz,col,al,wt){c.font=(wt||800)+' '+sz+'px "Noto Sans TC","PingFang TC",sans-serif';c.textAlign=al||'center';c.lineWidth=4;c.strokeStyle='rgba(2,10,18,.85)';c.strokeText(s,x,y);c.fillStyle=col;c.fillText(s,x,y)}
+function drone(x,y,s,tilt){c.save();c.translate(x,y);c.rotate(tilt||0);c.scale(s,s);glow(0,0,46,'rgba(127,243,227,.35)');c.strokeStyle='#cfe8ee';c.lineWidth=5;c.lineCap='round';c.beginPath();c.moveTo(-18,-6);c.lineTo(18,-6);c.stroke();[[-20,-10],[20,-10]].forEach(p=>{c.strokeStyle='#7FF3E3';c.lineWidth=3;c.beginPath();c.ellipse(p[0],p[1],14,3,0,0,7);c.stroke()});rr(-10,-8,20,12,4);c.fillStyle='#0b1a28';c.fill();c.strokeStyle='#F2CF7E';c.lineWidth=2;c.stroke();c.restore()}
+function tree(x,h,sway,now){const top=yOf(h),bw=Math.max(16,(gy()-top)*.55);c.strokeStyle='#5b3d24';c.lineWidth=5;c.beginPath();c.moveTo(x,gy());c.quadraticCurveTo(x,gy()-(gy()-top)*.5,x+sway*.5,top+bw*.4);c.stroke();c.fillStyle='#1f6b4a';c.beginPath();c.ellipse(x+sway,top+bw*.3,bw*.55,bw*.42,sway*.02,0,7);c.fill();c.fillStyle='#2a8a5e';c.beginPath();c.ellipse(x+sway*1.1-4,top+bw*.18,bw*.32,bw*.25,0,0,7);c.fill()}
+function building(o){const x=xOf(o[0]),w=W*o[1];if(o[3]==='r'){tree(x,o[2],0,0);return}const top=yOf(o[2]);const g=c.createLinearGradient(0,top,0,gy());g.addColorStop(0,'#1c3a52');g.addColorStop(1,'#07131f');c.fillStyle=g;c.fillRect(x-w/2,top,w,gy()-top);c.strokeStyle='rgba(127,243,227,.45)';c.lineWidth=1.5;c.strokeRect(x-w/2,top,w,gy()-top);for(let yy=top+10;yy<gy()-12;yy+=16)for(let xx=x-w/2+6;xx<x+w/2-8;xx+=12){if(Math.sin(xx*12.9+yy*7.3)>.1){c.fillStyle='rgba(170,215,235,.35)';c.fillRect(xx,yy,5,7)}}}
+function arrow(x,y,len,col,lw){c.strokeStyle=col;c.fillStyle=col;c.lineWidth=lw;c.beginPath();c.moveTo(x,y);c.lineTo(x+len,y);c.stroke();c.beginPath();c.moveTo(x+len+8,y);c.lineTo(x+len-2,y-6);c.lineTo(x+len-2,y+6);c.fill()}
+function sky(){const g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,'#1f5a86');g.addColorStop(1,'#4c8fa8');c.fillStyle=g;c.fillRect(0,0,W,H);glow(W*.15,H*.1,80,'rgba(255,236,170,.5)');c.fillStyle='#fff3c4';c.beginPath();c.arc(W*.15,H*.1,14,0,7);c.fill()}
+function ground(){const gg=c.createLinearGradient(0,gy(),0,H);gg.addColorStop(0,'#1d4a2e');gg.addColorStop(1,'#08180f');c.fillStyle=gg;c.fillRect(0,gy(),W,H-gy());c.strokeStyle='#2EC4B6';c.lineWidth=2;c.beginPath();c.moveTo(0,gy());c.lineTo(W,gy());c.stroke()}
+function home(x){glow(x,gy()-6,40,'rgba(242,207,126,.5)');c.fillStyle='#F2CF7E';c.beginPath();c.moveTo(x-12,gy()-2);c.lineTo(x,gy()-16);c.lineTo(x+12,gy()-2);c.fill();txt('H',x,gy()+18,14,'#F2CF7E')}
+function cloud(x,y,s){c.fillStyle='rgba(255,255,255,.85)';[[0,0,22],[20,-8,18],[38,0,20],[18,6,20]].forEach(p=>{c.beginPath();c.arc(x+p[0]*s,y+p[1]*s,p[2]*s,0,7);c.fill()})}
+function batt(x,y,p){rr(x,y,64,24,5);c.fillStyle='rgba(4,16,31,.8)';c.fill();c.strokeStyle='#cfe8ee';c.lineWidth=2;c.stroke();c.fillStyle='#cfe8ee';c.fillRect(x+64,y+7,4,10);const col=p<15?'#ff6b62':p<30?'#F2CF7E':'#7FF3E3';c.fillStyle=col;c.fillRect(x+3,y+3,Math.max(0,58*Math.min(100,p)/100),18);txt(Math.max(0,Math.round(p))+'%',x+32,y+18,13,'#fff')}
+function windAt(L,h){return L.a+L.b*h}
+// ===== 繪圖 =====
+function draw(now){c.setTransform(DPR,0,0,DPR,0,0);const L=LEVELS[lv];sky();
+ if(L.type==='go')drawGo(L,now);else if(L.type==='dir')drawDir(L,now);else drawAlt(L,now);
+ txt(L.tip,W/2,22,13,'#fff','center',800);
+ if(state==='fly'||state==='anim')anim=requestAnimationFrame(draw)}
+function drawGo(L,now){const t=now/1000;const sp=L.strong?1:0;
+ // 雲
+ for(let i=0;i<3;i++){const x=((i*W*.42+t*(sp?60:6))%(W+160))-80;cloud(x,H*(.13+i*.06),.8)}
+ ground();
+ // 樹梢
+ const sw=sp?Math.sin(t*5)*14:Math.sin(t*1.2)*1.5;tree(W*.2,30,sw,now);tree(W*.32,24,sw*.8,now);txt('樹梢',W*.26,yOf(34)-6,12,'#fff');
+ // 地面草：幾乎不動
+ txt('地面：幾乎沒風',W*.26,gy()+20,12,'#cfe8ee','center',700);
+ // App 面板
+ const px=W*.56,py=H*.36,pw=W*.38,ph=H*.26;rr(px,py,pw,ph,14);c.fillStyle='rgba(4,16,31,.88)';c.fill();c.strokeStyle='#cfe8ee';c.lineWidth=2;c.stroke();
+ txt('飛行 App',px+pw/2,py+22,13,'#9fd8cf');
+ if(sp){const bl=Math.sin(t*6)>0;rr(px+10,py+34,pw-20,ph-48,10);c.fillStyle=bl?'rgba(229,70,61,.85)':'rgba(229,70,61,.55)';c.fill();txt('⚠ 強風警告',px+pw/2,py+62,17,'#fff');txt('高空風速 14 m/s',px+pw/2,py+86,13,'#fff')}
+ else{rr(px+10,py+34,pw-20,ph-48,10);c.fillStyle='rgba(46,196,182,.35)';c.fill();txt('✓ 風速正常',px+pw/2,py+62,17,'#7FF3E3');txt('高空風速 3 m/s',px+pw/2,py+86,13,'#fff')}
+ txt('雲',W*.5,H*.1,12,'#fff');
+ const hx=W*.75;home(hx);
+ if(state==='idle'){drone(hx,gy()-10,1,0);return}
+ const el=(now-t0)/1000;let x=hx,y=gy()-10,tl=0;
+ if(choice==='fly'){const up=Math.min(1,el/1.2);y=gy()-10-(gy()-yOf(60))*up;
+  if(sp&&el>1.2){const k=el-1.2;x=hx+k*k*90;tl=.5;y-=k*20}else x=hx+(sp?0:Math.sin(el*3)*2);
+  if(sp&&x>W+40&&state==='anim'){state='done';setTimeout(showResult,200)}
+  if(!sp&&el>2.6&&state==='anim'){state='done';setTimeout(showResult,200)}}
+ else{if(el>.6&&state==='anim'){state='done';setTimeout(showResult,200)}}
+ drone(x,y,1,tl)}
+function drawDir(L,now){ground();const t=now/1000;
+ // 風向：往右吹
+ for(let i=0;i<5;i++){const y=H*(.2+i*.11);const off=(t*80+i*50)%(W+100)-100;arrow(off,y,46,'rgba(255,255,255,.7)',3)}
+ txt('風往右吹 ➜（'+L.wind+' m/s）',W/2,H*.15,14,'#fff');
+ // 風向袋
+ const fx=W*.5,fy=gy()-60;c.strokeStyle='#cfe8ee';c.lineWidth=3;c.beginPath();c.moveTo(fx,gy());c.lineTo(fx,fy);c.stroke();c.fillStyle='#ff8a3d';c.beginPath();c.moveTo(fx,fy);c.lineTo(fx+40,fy+5);c.lineTo(fx+40,fy+13);c.lineTo(fx,fy+18);c.fill();
+ const hx=W*.5;home(hx);
+ txt('⬅ 左邊',W*.12,gy()+20,12,'#cfe8ee');txt('右邊 ➡',W*.88,gy()+20,12,'#cfe8ee');
+ let bp=90,x=hx,y=yOf(60),fall=0;
+ if(state==='idle'){drone(hx,gy()-10,1,0);batt(W-84,40,bp);return}
+ const r=res.sim,el=(now-t0)/1000;const T1=1.6,T2=r.ok?1.6*r.backF:1.6*r.backF;// 回程時間比例
+ const far=W*.38*r.dirS; // 飛出去的距離（畫面）
+ if(el<T1){const u=el/T1;x=hx+far*u;bp=90-40*u}
+ else{const u=Math.min(1,(el-T1)/T2);const stopU=r.ok?1:r.failU;const uu=Math.min(u,stopU);x=hx+far*(1-uu);bp=50-r.backUse*uu;
+  if(!r.ok&&u>=stopU){fall=Math.min(1,(el-T1-T2*stopU)*1.5);y+= (gy()-y-10)*fall;bp=0}
+  if(u>=1||(!r.ok&&fall>=1)){if(state==='anim'){state='done';setTimeout(showResult,300)}}}
+ c.setLineDash([6,6]);c.strokeStyle='rgba(127,243,227,.6)';c.lineWidth=2;c.beginPath();c.moveTo(hx,yOf(60));c.lineTo(hx+far,yOf(60));c.stroke();c.setLineDash([]);
+ drone(x,y,1,fall*1.2);batt(W-84,40,bp)}
+function altPath(L,h){const x1=xOf(1),x0=xOf(0),y0=yOf(100),yh=yOf(h);return {x1,x0,y0,yh}}
+function drawAlt(L,now){
+ // 風箭頭：越高越長，往右吹（回程往左＝頂風）
+ const t=now/1000;for(let m=20;m<=120;m+=20){const w=windAt(L,m),len=8+w*7,y=yOf(m);const ph=((t*w*6)%40);c.globalAlpha=.75;arrow(W*.04+ph,y-8,len,'#ffffff',2+w*.15);c.globalAlpha=1;if(L.lab)txt(w.toFixed(0)+' m/s',W*.04+len+52,y-3,11,'#fff','left',800)}
+ // 刻度
+ c.strokeStyle='rgba(255,255,255,.18)';c.lineWidth=1;for(let m=0;m<=120;m+=20){const y=yOf(m);c.setLineDash([3,6]);c.beginPath();c.moveTo(0,y);c.lineTo(W,y);c.stroke();c.setLineDash([]);txt(m+'',W-4,y+4,10,'rgba(255,255,255,.7)','right',600)}
+ ground();L.obs.forEach(o=>building(o));home(xOf(0));
+ const h=+document.getElementById('rg').value,P=altPath(L,h);
+ batt(W-84,40,state==='idle'?L.B:res.bp);
+ if(state==='idle'){c.setLineDash([8,8]);c.strokeStyle='rgba(242,207,126,.85)';c.lineWidth=2;c.beginPath();c.moveTo(P.x1,P.y0);c.lineTo(P.x1,P.yh);c.lineTo(P.x0,P.yh);c.lineTo(P.x0,gy()-8);c.stroke();c.setLineDash([]);drone(P.x1,P.y0,1,0);txt('無人機（100 m）',P.x1,P.y0-22,12,'#fff');return}
+ // 飛行動畫
+ const r=res,el=(now-t0)/1000;const Tv=.8,Th=r.Th;let x=P.x1,y=P.y0,tl=0,f=0;
+ if(el<Tv){y=P.y0+(P.yh-P.y0)*(el/Tv)}
+ else{const u=Math.min(1,(el-Tv)/Th);const stop=r.stopU;const uu=Math.min(u,stop);x=P.x1+(P.x0-P.x1)*uu;y=P.yh;res.bp=L.B-r.used*uu;
+  if(u>=stop&&stop<1){f=Math.min(1,(el-Tv-Th*stop)*1.5);
+   if(r.kind==='hit'){glow(x,y,60*f+20,'rgba(255,90,78,.6)');y+=(gy()-y-10)*f*f;tl=1.2*f}else{y+=(gy()-y-10)*f;tl=.3*f}
+   if(f>=1&&state==='anim'){state='done';setTimeout(showResult,400)}}
+  else if(u>=1){const k=Math.min(1,(el-Tv-Th)/.6);x=P.x0;y=P.yh+(gy()-10-P.yh)*k;if(k>=1&&state==='anim'){state='done';setTimeout(showResult,300)}}}
+ c.strokeStyle='#2EC4B6';c.lineWidth=3;c.beginPath();c.moveTo(P.x1,P.y0);if(el<Tv)c.lineTo(x,y);else{c.lineTo(P.x1,P.yh);c.lineTo(x,P.yh)}c.stroke();
+ drone(x,y,1,tl)}
+// ===== 判定 =====
+function simAlt(L,h){const top=Math.max(...L.obs.map(o=>o[2]));const w=windAt(L,h),gs=V-w;
+ let used=gs>0.5?(L.D/gs)*DRAIN:999;const remain=L.B-used;
+ // 撞障礙物：從右往左第一個高度 >= h 的
+ let hitU=null;L.obs.slice().sort((a,b)=>b[0]-a[0]).some(o=>{if(o[2]>=h){hitU=1-(o[0]+o[1]*.5/.78);return true}});
+ const batU=remain<5?Math.max(0,(L.B-5)/used):1;
+ let kind='ok',stopU=1;if(hitU!==null&&hitU<batU){kind='hit';stopU=Math.max(0,hitU)}else if(remain<5){kind='bat';stopU=batU}
+ const Th=Math.min(5,1.2+(L.D/Math.max(gs,1))/90);
+ return {top,w,gs,used,remain,kind,stopU,Th,bp:L.B}}
+function judgeAlt(L,h,r){const m=h-r.top;const info='用 '+h+' m 回家：頂風 '+r.w.toFixed(0)+' m/s，對地速度剩 '+Math.max(0,r.gs).toFixed(0)+' m/s。';
+ if(r.kind==='hit')return{s:0,cls:'bad',t:'撞上去了！',d:'最高的障礙物是 <b>'+r.top+' m</b>，你只飛 '+h+' m。<br>降低高度躲風可以，但要比障礙物高。'};
+ if(r.kind==='bat')return{s:0,cls:'bad',t:'沒電，迫降在半路',d:info+'<br>越高風越大，飛不動又一直耗電。<b>頂風回不來，先降低高度。</b>'};
+ if(m<10)return{s:50,cls:'warn',t:'好險，差點擦到',d:'只比最高障礙物（'+r.top+' m）高 '+m+' m。降低高度躲風是對的，但要多留 10 m 以上。'};
+ if(r.remain<15)return{s:60,cls:'warn',t:'回來了，但電量警報',d:info+'<br>落地只剩 '+Math.round(r.remain)+'%。再降低一點高度，風小、回得更快。'};
+ return{s:100,cls:'ok',t:'完美回家！',d:info+'<br>落地還有 '+Math.round(r.remain)+'% 電，<b>降低高度躲風</b>就對了。'}}
+function simDir(L,dir){// 風往右吹：往左飛出去＝逆風
+ const up=dir==='L';const go=up?V-L.wind:V+L.wind,back=up?V+L.wind:V-L.wind;const backUse=40*go/back;const ok=backUse<=45;
+ return {ok,backUse,failU:ok?1:50/backUse,backF:Math.min(2.4,go/back*1.0+.3),dirS:up?-1:1}}
+// ===== 流程 =====
+function setPanel(){const L=LEVELS[lv];
+ if(L.type==='go')panel.innerHTML='<div class="q">檢查完了，你的決定？</div><div class="two"><button class="btn alt" id="bGo">🚁 起飛</button><button class="btn" id="bNo">✋ 今天不飛</button></div><div class="tip">各機型抗風能力不同，以說明書為準。</div>';
+ else if(L.type==='dir')panel.innerHTML='<div class="q">電量剩一半就回頭，先往哪邊飛？</div><div class="two"><button class="btn alt" id="bL">⬅ 先往左飛</button><button class="btn alt" id="bR">先往右飛 ➡</button></div><div class="tip">看風往哪邊吹，再決定。各機型抗風能力不同，以說明書為準。</div>';
+ else panel.innerHTML='<div class="row"><div class="hval"><span id="hv">100</span><small> m</small></div><input id="rg" type="range" min="10" max="120" step="1" value="100"></div><button class="btn" id="go">▶ 按下返航</button><div class="tip">拖拉桿選回家的高度：先升降到這個高度，再直線頂風飛回 H。</div>';
+ const q=id=>document.getElementById(id);
+ if(q('bGo')){q('bGo').onclick=()=>start('fly');q('bNo').onclick=()=>start('no')}
+ if(q('bL')){q('bL').onclick=()=>start('L');q('bR').onclick=()=>start('R')}
+ if(q('rg')){const rg=q('rg'),hv=q('hv');const sh=()=>{hv.textContent=rg.value;rg.style.setProperty('--p',((rg.value-10)/110*100)+'%')};sh();rg.oninput=()=>{if(state!=='idle')return;sh()};q('go').onclick=()=>start('alt')}}
+function disable(){panel.querySelectorAll('button,input').forEach(b=>b.disabled=true)}
+function start(ch){if(state!=='idle')return;const L=LEVELS[lv];choice=ch;
+ if(L.type==='go'){const right=L.strong?ch==='no':ch==='fly';res={j:L.strong?(ch==='no'?{s:100,cls:'ok',t:'判斷正確！',d:'地面幾乎沒風，但<b>樹梢在搖、雲跑很快、App 跳強風警告</b>，代表高空風很大。<br>風太大，就不要飛。'}:{s:0,cls:'bad',t:'被風吹走了！',d:'地面沒風不代表上面沒風。樹梢搖、雲跑很快、App 跳強風警告，三個都在提醒你。<br><b>風太大，就不要飛。</b>'}):(ch==='fly'?{s:100,cls:'ok',t:'判斷正確！',d:'樹梢不搖、雲走得慢、App 風速正常，可以起飛。<br>起飛後先升到要飛的高度懸停，看看飄不飄。'}:{s:70,cls:'warn',t:'安全第一，但今天可以飛',d:'樹梢不搖、雲走得慢、App 也沒有警告，今天條件不錯。<br>小心是好事，三個地方都正常就可以安心起飛。'})}}
+ else if(L.type==='dir'){const r=simDir(L,ch);res={sim:r,j:r.ok?{s:100,cls:'ok',t:'安全回家！',d:'風往右吹，你<b>先往左逆風飛出去</b>，回程順風，只用了 '+Math.round(r.backUse)+'% 電，落地還有 '+Math.round(50-r.backUse)+'%。<br>口訣：逆風飛出去，順風飛回來。'}:{s:0,cls:'bad',t:'回不來，沒電迫降',d:'先順風飛出去很輕鬆，一下就飛很遠；回程變頂風，<b>剩一半的電根本不夠</b>。<br>口訣：逆風飛出去，順風飛回來，回程電量才夠。'}}}
+ else{const h=+document.getElementById('rg').value;const r=simAlt(L,h);res=Object.assign(r,{j:judgeAlt(L,h,r)})}
+ state='anim';disable();t0=performance.now();cancelAnimationFrame(anim);anim=requestAnimationFrame(draw)}
+function showResult(){const r=res.j;total+=r.s;document.getElementById('sc').textContent=total;
+ const last=lv>=LEVELS.length-1;
+ card.innerHTML='<h2 class="'+r.cls+'">'+r.t+'</h2><div class="big">+'+r.s+'</div><p>'+r.d+'</p><button class="btn alt" id="nx">'+(last?'看總成績':'下一關 ▶')+'</button><button class="btn dk" id="rt" style="font-size:16px;padding:12px">這關重來一次</button>';
+ ov.classList.add('on');
+ document.getElementById('nx').onclick=()=>{ov.classList.remove('on');if(last)final();else{lv++;reset()}};
+ document.getElementById('rt').onclick=()=>{total-=r.s;document.getElementById('sc').textContent=total;ov.classList.remove('on');reset()}}
+function final(){const g=total>=450?'抗風高手':total>=350?'合格飛手':total>=200?'還要多練':'先別起飛';
+ const share='我在「抗風回家」拿到 '+total+' / 500 分（'+g+'）！地面沒風，你的無人機回得來嗎？來挑戰 👉 '+location.href.split('?')[0];
+ card.innerHTML='<h2>總成績</h2><div class="big">'+total+'<span style="font-size:24px;color:#9fd8cf"> / 500</span></div><p class="warn" style="font-size:22px;font-weight:900">'+g+'</p><p>記住口訣：<b>起飛前看樹梢、雲、App；逆風飛出去，順風飛回來；頂風回不來，先降低高度。</b></p><button class="btn alt" id="sh">📤 分享給朋友挑戰</button><button class="btn dk" id="ag" style="font-size:16px;padding:12px">再玩一次</button><p class="note" style="margin-top:14px">想學飛、考操作證？歡迎私訊「鋒哥飛行」<br>各機型抗風能力與返航方式不同，以說明書為準；法規以民航局最新公告為準</p>';
+ ov.classList.add('on');
+ document.getElementById('sh').onclick=async()=>{try{if(navigator.share){await navigator.share({title:'抗風回家',text:share});return}}catch(e){}try{await navigator.clipboard.writeText(share);document.getElementById('sh').textContent='✅ 已複製，貼給朋友吧'}catch(e){prompt('複製這段分享給朋友：',share)}};
+ document.getElementById('ag').onclick=()=>{ov.classList.remove('on');lv=0;total=0;document.getElementById('sc').textContent=0;reset()}}
+function reset(){state='idle';choice=null;res=null;document.getElementById('lv').textContent=lv+1;cancelAnimationFrame(anim);setPanel();
+ const loop=n=>{if(state!=='idle')return;draw(n);anim=requestAnimationFrame(loop)};anim=requestAnimationFrame(loop)}
+setPanel();resize();reset();
+</script>
+</body>
+</html>
