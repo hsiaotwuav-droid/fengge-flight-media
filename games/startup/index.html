@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>開機順序挑戰｜鋒哥飛行</title>
 <meta property="og:title" content="開機順序挑戰｜順序錯了，無人機可能直接失控">
-<meta property="og:description" content="5 關排順序小遊戲：先開遙控器還是先上電？衛星幾顆才能飛？降落後先關哪個？">
+<meta property="og:description" content="5 關排順序小遊戲：先開遙控器還是先上電？衛星幾顆才能飛？朋友已經挑戰了，換你！">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:#04101f;color:#e8f6f8;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;overflow:hidden;-webkit-tap-highlight-color:transparent}
@@ -59,11 +59,17 @@ header{position:relative;z-index:6;display:flex;align-items:center;padding:10px 
 .card .seq{display:flex;flex-wrap:wrap;justify-content:center;gap:4px;margin:8px 0;font-size:13.5px;font-weight:800;color:#7FF3E3}
 .card .seq span{padding:4px 8px;border-radius:8px;background:rgba(46,196,182,.14);border:1px solid rgba(127,243,227,.35)}
 .ok{color:#7FF3E3}.bad{color:#ff6b62}.warn{color:#F2CF7E}
+.clk{display:none;margin-left:8px;font-size:14px;font-weight:900;color:#F2CF7E;white-space:nowrap}
+.mode .btn{text-align:left;padding:13px 16px}.mode .btn small{display:block;font-size:13px;font-weight:700;opacity:.85;margin-top:2px}
+.vs{margin:10px 0;padding:10px;border-radius:14px;background:rgba(242,207,126,.1);border:1px solid rgba(242,207,126,.5);font-size:15px;line-height:1.55;color:#ffe9b8}
+.recap{text-align:left;margin:8px 0;padding:10px 12px;border-radius:12px;background:rgba(255,107,98,.08);border:1px solid rgba(255,107,98,.35);font-size:13.5px;line-height:1.6;color:#ffd2cf}
+.nick{width:100%;margin-top:8px;padding:11px 12px;border-radius:12px;border:1px solid rgba(127,243,227,.45);background:#0b2335;color:#fff;font-size:16px;font-family:inherit;text-align:center}
+.ask{margin-top:12px;padding:10px;border-radius:14px;background:rgba(46,196,182,.1);border:1px solid rgba(127,243,227,.45);font-size:15px;line-height:1.55}
 </style>
 </head>
 <body>
 <div id="app">
- <header><a class="hm" href="../" aria-label="回遊戲入口">🏠</a><div class="brand">鋒哥飛行｜開機順序挑戰</div><div class="lvl">第 <b id="lv">1</b> / 5 關　總分 <b id="sc">0</b></div></header>
+ <header><a class="hm" href="../" aria-label="回遊戲入口">🏠</a><div class="brand">鋒哥飛行｜開機順序挑戰</div><div class="lvl">第 <b id="lv">1</b> / 5 關　總分 <b id="sc">0</b></div><span class="clk" id="clk">⏱ 0.0</span></header>
  <div id="scene">
   <svg viewBox="0 0 390 260" preserveAspectRatio="xMidYMid slice">
    <defs>
@@ -132,6 +138,16 @@ const LEVELS=[
   learn:'降落後反過來：先斷飛機的電，再關遙控器。'}
 ];
 let lv=0,total=0,step=0,wrong=0,early=0,timer=null,lvScore=0;
+// 模式、計時、錯題、朋友挑戰
+let mode='',mist=[],playMs=0,segT=0,clkI=null,nick='';
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const P=new URLSearchParams(location.search);
+const CH=(()=>{const s=parseInt(P.get('c'),10),t=parseFloat(P.get('t'));if(!(s>=0&&s<=500))return null;
+ return{s,t:(t>0&&t<3600)?t:0,n:esc((P.get('n')||'').slice(0,8))||'你朋友',m:P.get('m')==='h'?'h':'e'}})();
+const secs=()=>(playMs/1000).toFixed(1);
+function segStart(){segT=performance.now();clearInterval(clkI);if(mode==='h')clkI=setInterval(()=>{$('clk').textContent='⏱ '+((playMs+performance.now()-segT)/1000).toFixed(1)},100)}
+function segStop(){if(segT){playMs+=performance.now()-segT;segT=0}clearInterval(clkI);if(mode==='h')$('clk').textContent='⏱ '+secs()}
+function addMist(s){mist.push({lv:lv+1,t:LEVELS[lv].title,s})}
 function hud(h){$('hud').innerHTML=h}
 function setDrone(st){ // st: off / on / fly / hover / landed
  const on=st!=='off';$('l1').setAttribute('fill',on?'#3dff8a':'#333');$('l2').setAttribute('fill',on?'#3dff8a':'#333');
@@ -147,15 +163,15 @@ function resetScene(L){$('kid').style.display=L.kid?'':'none';$('drone').classLi
  else if(lv===1){setRC(true);setDrone('off');hud('<span class="g">● 遙控器已開</span>　飛機未上電')}
  else if(lv===3){setRC(true);setDrone('on');hud('<span class="g">衛星 19・3D</span>　定位完成')}
  else if(lv===4){setRC(true);setDrone('spin');hud('<span class="y">已降落</span>　螺旋槳還在轉')}}
-function play(){const L=LEVELS[lv];step=0;wrong=0;early=0;$('lv').textContent=lv+1;resetScene(L);
+function play(){const L=LEVELS[lv];step=0;wrong=0;early=0;$('lv').textContent=lv+1;resetScene(L);segStart();
  if(L.type==='wait')return playWait(L);
  const opts=shuffle(L.steps);
- main.innerHTML='<div class="q">'+L.q+'</div><div class="sub">'+L.sub+'</div><div class="slots">'+L.steps.map((s,i)=>'<div class="slot" id="s'+i+'">'+(i+1)+'</div>').join('')+'</div><div class="opts">'+opts.map((s,i)=>'<button class="opt" data-s="'+s+'">'+s+'</button>').join('')+'</div><div class="fb" id="fb"></div>';
+ main.innerHTML='<div class="q">'+L.q+'</div><div class="sub">'+(mode==='h'?'挑戰模式：沒有提示，計時中':L.sub)+'</div><div class="slots">'+L.steps.map((s,i)=>'<div class="slot" id="s'+i+'">'+(i+1)+'</div>').join('')+'</div><div class="opts">'+opts.map((s,i)=>'<button class="opt" data-s="'+s+'">'+s+'</button>').join('')+'</div><div class="fb" id="fb"></div>';
  main.querySelectorAll('.opt').forEach(b=>b.onclick=()=>pick(b))}
 function pick(b){const L=LEVELS[lv],s=b.dataset.s,fb=$('fb');
  if(s===L.steps[step]){b.classList.add('used');const sl=$('s'+step);sl.textContent=s;sl.classList.add('f','pop');fb.className='fb ok on';fb.innerHTML='✅ 對！';
   afterStep(s);step++;if(step===L.steps.length)setTimeout(()=>finish(),900)}
- else{wrong++;b.classList.remove('no');void b.offsetWidth;b.classList.add('no');bad();
+ else{wrong++;addMist('先點了「'+s+'」');b.classList.remove('no');void b.offsetWidth;b.classList.add('no');bad();
   if((lv===0&&s==='上電'&&step===0)||(lv===4&&s==='關遙控器'))wob();
   fb.className='fb bad on';fb.innerHTML='❌ '+(L.why[s]||L.why.def)+'<br><span style="font-size:12px;opacity:.8">−25 分</span>'}}
 function afterStep(s){
@@ -173,30 +189,60 @@ function afterStep(s){
 const WAIT=[[0,'<span class="r">未連接</span>'],[1800,'<span class="y">已連接</span>　衛星 4・無定位'],[3800,'<span class="y">已連接</span>　衛星 9・2D'],[5800,'<span class="g">已連接</span>　衛星 19・<b>3D</b>']];
 let wi=0,wStart=0;
 function playWait(L){setRC(true);setDrone('on');wi=0;
- main.innerHTML='<div class="q">'+L.q+'</div><div class="sub">'+L.sub+'</div><div class="fb" id="fb"></div><div class="two"><button class="btn alt" id="go">可以起飛</button><button class="btn dk" id="wt" style="font-size:17px">再等等</button></div>';
+ main.innerHTML='<div class="q">'+L.q+'</div><div class="sub">'+(mode==='h'?'挑戰模式：沒有提示，計時中':L.sub)+'</div><div class="fb" id="fb"></div><div class="two"><button class="btn alt" id="go">可以起飛</button><button class="btn dk" id="wt" style="font-size:17px">再等等</button></div>';
  hud(WAIT[0][1]);wStart=performance.now();clearInterval(timer);
  timer=setInterval(()=>{const t=performance.now()-wStart;let k=0;WAIT.forEach((w,i)=>{if(t>=w[0])k=i});if(k!==wi){wi=k;hud(WAIT[k][1])}},120);
- $('wt').onclick=()=>{const fb=$('fb');fb.className='fb ok on';fb.innerHTML=wi<3?'👍 對，還沒好，繼續等。':'已經是 3D 了，可以按「可以起飛」！'};
+ $('wt').onclick=()=>{const fb=$('fb');fb.className='fb ok on';fb.innerHTML=mode==='h'?'⏳ 繼續等…':(wi<3?'👍 對，還沒好，繼續等。':'已經是 3D 了，可以按「可以起飛」！')};
  $('go').onclick=()=>{const fb=$('fb');
-  if(wi<3){early++;bad();wob();fb.className='fb bad on';fb.innerHTML='❌ '+(wi===0?'還沒連上飛機！左上角是「未連接」。':wi===1?'衛星太少、還沒定位，起飛後可能飄走，返航點也不準。':'只有 2D，高度還沒定位好，等到 <b>3D</b> 再飛。')+'<br><span style="font-size:12px;opacity:.8">−25 分</span>'}
+  if(wi<3){early++;addMist(wi===0?'還沒連線就要起飛':wi===1?'衛星太少就要起飛':'只有 2D 就要起飛');bad();wob();fb.className='fb bad on';fb.innerHTML='❌ '+(wi===0?'還沒連上飛機！左上角是「未連接」。':wi===1?'衛星太少、還沒定位，起飛後可能飄走，返航點也不準。':'只有 2D，高度還沒定位好，等到 <b>3D</b> 再飛。')+'<br><span style="font-size:12px;opacity:.8">−25 分</span>'}
   else{clearInterval(timer);fb.className='fb ok on';fb.innerHTML='✅ 衛星 19 顆、3D，定位完成，可以起飛！';$('go').disabled=true;setTimeout(()=>finish(),900)}}}
-function finish(){const L=LEVELS[lv];const n=wrong+early;lvScore=Math.max(0,100-25*n);total+=lvScore;$('sc').textContent=total;
+function finish(){segStop();const L=LEVELS[lv];const n=wrong+early;lvScore=Math.max(0,100-25*n);total+=lvScore;$('sc').textContent=total;
  const t=n===0?'完美！':lvScore>=50?'好險':'順序要再練';const cls=n===0?'ok':lvScore>=50?'warn':'bad';const last=lv>=LEVELS.length-1;
  card.innerHTML='<h2 class="'+cls+'">'+t+'</h2><div class="big">+'+lvScore+'</div>'+(n?'<p class="warn">錯 '+n+' 次，每次扣 25 分</p>':'')+(L.steps?'<div class="seq">'+L.steps.map((s,i)=>'<span>'+(i+1)+' '+s+'</span>').join('')+'</div>':'')+'<p><b>'+L.learn+'</b></p><button class="btn alt" id="nx">'+(last?'看總成績':'下一關 ▶')+'</button><button class="btn dk" id="rt">這關重來一次</button>';
  ov.classList.add('on');
  $('nx').onclick=()=>{ov.classList.remove('on');if(last)final();else{lv++;intro()}};
- $('rt').onclick=()=>{total-=lvScore;$('sc').textContent=total;ov.classList.remove('on');intro()}}
+ $('rt').onclick=()=>{total-=lvScore;$('sc').textContent=total;mist=mist.filter(m=>m.lv!==lv+1);ov.classList.remove('on');intro()}}
+async function copyOrShare(btn,text,okTxt,useShare){try{if(useShare&&navigator.share){await navigator.share({title:'開機順序挑戰',text});return}}catch(e){if(e&&e.name==='AbortError')return}
+ try{await navigator.clipboard.writeText(text);btn.textContent=okTxt}catch(e){prompt('長按複製這段文字：',text)}}
 function final(){const g=total>=500?'開機零失誤':total>=400?'穩穩起飛':total>=250?'再練一下':'先回去看影片';
- const url=location.href.split('?')[0];
- const share='我在「開機順序挑戰」拿到 '+total+' / 500 分（'+g+'）！你知道要先開遙控器還是先上電嗎？來挑戰 👉 '+url;
- card.innerHTML='<h2>總成績</h2><div class="big">'+total+'<span style="font-size:24px;color:#9fd8cf"> / 500</span></div><p class="warn" style="font-size:22px;font-weight:900">'+g+'</p><p>口訣：<br><b>先開遙控、再上電；等到 3D、才起飛；<br>降落反過來，先斷飛機、再關遙控。</b></p><button class="btn alt" id="sh">📤 分享給朋友挑戰</button><button class="btn dk" id="ag">再玩一次</button><a class="btn lk" href="../" style="margin-top:10px">🎮 玩其他小遊戲</a><p class="note" style="margin-top:12px">想學飛、考操作證？歡迎私訊「鋒哥飛行」<br>各機型開關機與解鎖方式不同，以說明書為準；法規以民航局最新公告為準</p>';
+ const H=mode==='h',sec=secs(),mName=H?'挑戰模式':'新手模式';
+ // 跟朋友比
+ let vs='';
+ if(CH){const byT=total===CH.s&&H&&CH.t>0,win=total>CH.s||(byT&&+sec<CH.t),lose=total<CH.s||(byT&&+sec>CH.t);
+  const res=win?'🏆 你贏了！傳回去讓他知道':lose?(total<CH.s?'😤 差 '+(CH.s-total)+' 分，再挑戰一次？':'😤 同分但慢了 '+(+sec-CH.t).toFixed(1)+' 秒，再挑戰一次？'):'🤝 平手！再來一場分高下';
+  vs='<div class="vs">'+CH.n+'：<b>'+CH.s+' 分</b>'+(CH.t?'・'+CH.t+' 秒':'')+'<br>你：<b>'+total+' 分</b>'+(H?'・'+sec+' 秒':'')+'<br><b style="font-size:18px">'+res+'</b></div>'}
+ // 錯在哪
+ const lvs=[...new Set(mist.map(m=>m.lv))];
+ const recap=mist.length?'<div class="recap"><b>你錯在這裡：</b><br>'+mist.map(m=>'第 '+m.lv+' 關〈'+m.t+'〉'+m.s).join('<br>')+'</div>':'<p class="ok"><b>全部零失誤 👏</b></p>';
+ const cmt='#開機順序挑戰 '+mName+' '+total+' 分'+(H?'・'+sec+' 秒':'')+(lvs.length?'，我錯在第 '+lvs.join('、')+' 關':'，零失誤！');
+ card.innerHTML='<h2>總成績・'+mName+'</h2><div class="big">'+total+'<span style="font-size:24px;color:#9fd8cf"> / 500</span></div>'+(H?'<p class="warn" style="font-size:18px;font-weight:900">⏱ '+sec+' 秒</p>':'')+'<p class="warn" style="font-size:22px;font-weight:900">'+g+'</p>'+vs+recap
+  +'<p>口訣：<br><b>先開遙控、再上電；等到 3D、才起飛；<br>降落反過來，先斷飛機、再關遙控。</b></p>'
+  +'<input class="nick" id="nk" maxlength="8" placeholder="你的暱稱（可不填）" value="'+esc(nick)+'">'
+  +'<button class="btn" id="sh">⚔️ 下戰帖：傳給朋友挑戰我</button>'
+  +'<div class="ask">💬 <b>你錯在哪一關？</b>到影片留言區告訴鋒哥，看看大家最常錯哪一步！<button class="btn dk" id="cm" style="margin-top:8px">複製我的成績，貼到留言</button></div>'
+  +(H?'':'<button class="btn alt" id="hd">🔥 敢不敢開「挑戰模式」？沒提示＋計時</button>')
+  +'<button class="btn dk" id="ag">'+(H?'挑戰模式再來一次':'新手模式再玩一次')+'</button><a class="btn lk" href="../" style="margin-top:10px">🎮 玩其他小遊戲</a><p class="note" style="margin-top:12px">想學飛、考操作證？歡迎私訊「鋒哥飛行」<br>各機型開關機與解鎖方式不同，以說明書為準；法規以民航局最新公告為準</p>';
+ ov.classList.add('on');ov.scrollTop=0;card.scrollTop=0;
+ $('nk').oninput=e=>{nick=e.target.value.slice(0,8)};
+ $('sh').onclick=()=>{const q=new URLSearchParams({c:total,m:H?'h':'e'});if(H)q.set('t',sec);if(nick.trim())q.set('n',nick.trim());
+  const url=location.origin+location.pathname+'?'+q.toString();
+  const msg=(nick.trim()?nick.trim()+' ':'我')+'在「開機順序挑戰」'+mName+'拿到 '+total+' / 500 分'+(H?'（'+sec+' 秒）':'')+'！你知道要先開遙控器還是先上電嗎？敢來挑戰我嗎 👉 '+url;
+  copyOrShare($('sh'),msg,'✅ 戰帖已複製，貼給朋友吧',true)};
+ $('cm').onclick=()=>copyOrShare($('cm'),cmt,'✅ 已複製，到影片留言區貼上',false);
+ if($('hd'))$('hd').onclick=()=>restart('h');
+ $('ag').onclick=()=>restart(mode)}
+function restart(m){ov.classList.remove('on');mode=m;lv=0;total=0;mist=[];playMs=0;$('sc').textContent=0;$('clk').style.display=m==='h'?'inline':'none';$('clk').textContent='⏱ 0.0';intro()}
+function pickMode(){resetScene(LEVELS[0]);main.innerHTML='';
+ const banner=CH?'<div class="vs">⚔️ <b>'+CH.n+'</b> 向你下戰帖！<br>他在'+(CH.m==='h'?'挑戰模式':'新手模式')+'拿了 <b>'+CH.s+' 分</b>'+(CH.t?'、'+CH.t+' 秒':'')+'<br>你能贏過他嗎？</div>':'';
+ card.innerHTML='<h2 class="warn">開機順序挑戰</h2><p>考照機從開機到降落關機，<br>5 關排順序，錯一次扣 25 分。</p>'+banner
+  +'<div class="mode"><button class="btn alt" id="me">🟢 新手模式<small>有提示，錯了告訴你為什麼</small></button>'
+  +'<button class="btn" id="mh">🔥 挑戰模式<small>沒提示＋計時，跟朋友比分數和秒數</small></button></div>';
  ov.classList.add('on');
- $('sh').onclick=async()=>{try{if(navigator.share){await navigator.share({title:'開機順序挑戰',text:share});return}}catch(e){}try{await navigator.clipboard.writeText(share);$('sh').textContent='✅ 已複製，貼給朋友吧'}catch(e){prompt('複製這段分享給朋友：',share)}};
- $('ag').onclick=()=>{ov.classList.remove('on');lv=0;total=0;$('sc').textContent=0;intro()}}
+ $('me').onclick=()=>restart('e');$('mh').onclick=()=>restart('h')}
 function intro(){clearInterval(timer);const L=LEVELS[lv];main.innerHTML='';resetScene(L);$('lv').textContent=lv+1;
  card.innerHTML='<h2 class="warn">第 '+(lv+1)+' 關｜'+L.title+'</h2><p>'+L.q+'</p><p class="note">'+(L.type==='wait'?'太早按會扣分，看清楚 App 狀態再決定。':'點錯一次扣 25 分，錯了會告訴你為什麼。')+'</p><button class="btn alt" id="st">開始 ▶</button>';
  ov.classList.add('on');$('st').onclick=()=>{ov.classList.remove('on');play()}}
-intro();
+pickMode();
 </script>
 </body>
 </html>
